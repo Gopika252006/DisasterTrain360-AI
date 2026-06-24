@@ -7,4 +7,4 @@ Team:
 - Backend
 - AWS
 - AI
-- 
+  
