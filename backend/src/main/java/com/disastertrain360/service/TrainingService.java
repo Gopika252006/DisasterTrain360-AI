@@ -16,10 +16,15 @@ import java.util.UUID;
 public class TrainingService {
 
     private final DynamoDbRepository repo;
+    private final LambdaService lambdaService;
 
-    public TrainingService(DynamoDbRepository repo) {
-        this.repo = repo;
-    }
+     public TrainingService(
+        DynamoDbRepository repo,
+        LambdaService lambdaService) {
+
+    this.repo = repo;
+    this.lambdaService = lambdaService;
+}
 
     public Training createTraining(TrainingRequest req, String createdBy) {
         Training training = Training.builder()
@@ -36,8 +41,14 @@ public class TrainingService {
                 .createdBy(createdBy)
                 .createdAt(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
-        repo.saveTraining(training);
-        return training;
+           
+                repo.saveTraining(training);
+
+  lambdaService.invokeTrainingLambda(
+        training.getTrainingName()
+);
+
+return training;
     }
 
     public List<Training> getAllTrainings(String state, String district, String status) {
