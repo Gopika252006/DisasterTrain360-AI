@@ -95,6 +95,12 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3-transfer-manager</artifactId>
+      <version>${aws.sdk.version}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
       <artifactId>sns</artifactId>
       <version>${aws.sdk.version}</version>
       <optional>true</optional>

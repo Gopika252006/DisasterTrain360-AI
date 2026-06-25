@@ -1,5 +1,6 @@
 package com.disastertrain360.controller;
 
+import com.disastertrain360.aws.S3Service;
 import com.disastertrain360.model.Enrollment;
 import com.disastertrain360.repository.DynamoDbRepository;
 import com.disastertrain360.service.EnrollmentService;
@@ -19,12 +20,16 @@ import java.util.Map;
 @SecurityRequirement(name = "bearerAuth")
 public class EnrollmentController {
 
-    private final EnrollmentService enrollmentService;
+    private final EnrollmentService  enrollmentService;
     private final DynamoDbRepository repo;
+    private final S3Service          s3Service;
 
-    public EnrollmentController(EnrollmentService enrollmentService, DynamoDbRepository repo) {
+    public EnrollmentController(EnrollmentService enrollmentService,
+                                DynamoDbRepository repo,
+                                S3Service s3Service) {
         this.enrollmentService = enrollmentService;
-        this.repo = repo;
+        this.repo              = repo;
+        this.s3Service         = s3Service;
     }
 
     /** POST /enrollment/{trainingId} — enroll authenticated user */
@@ -66,5 +71,34 @@ public class EnrollmentController {
             @PathVariable String trainingId, Authentication auth) {
         if (auth == null) return ResponseEntity.status(401).build();
         return ResponseEntity.ok(enrollmentService.checkEnrollment(trainingId, auth.getName()));
+    }
+
+    /**
+     * GET /enrollment/certificates/{enrollmentId}/download
+     * Returns a 60-min presigned S3 URL for certificate download.
+     * If no certificate file exists yet, returns a message.
+     */
+    @GetMapping("/certificates/{enrollmentId}/download")
+    @Operation(summary = "Get presigned download URL for a certificate")
+    public ResponseEntity<?> downloadCertificate(
+            @PathVariable String enrollmentId, Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).build();
+
+        List<Enrollment> certs = enrollmentService.getMyCertificates(auth.getName());
+        return certs.stream()
+                .filter(e -> e.getEnrollmentId().equals(enrollmentId))
+                .findFirst()
+                .map(e -> {
+                    // certificateUrl field holds the S3 URL if a PDF was uploaded
+                    // For now return a message — cert generation can be added later
+                    return ResponseEntity.ok()
+                            .<Object>body(Map.of(
+                                    "enrollmentId",  e.getEnrollmentId(),
+                                    "trainingName",  e.getTrainingName(),
+                                    "status",        "Certificate generation not yet configured",
+                                    "message",       "Upload certificate PDF via POST /evidence to enable download"
+                            ));
+                })
+                .orElse(ResponseEntity.notFound().<Object>build());
     }
 }

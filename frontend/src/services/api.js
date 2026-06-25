@@ -103,4 +103,25 @@ export const uploadEvidence = (formData) =>
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 
+// ─── S3 File Upload APIs ──────────────────────
+export const uploadTrainingPhoto = (file, trainingId = '') => {
+  const formData = new FormData()
+  formData.append('photo', file)
+  if (trainingId) formData.append('trainingId', trainingId)
+  return api.post('/training/upload-photo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export const getReportDownloadUrl = (reportId) =>
+  api.get(`/reports/${reportId}/download`)
+
+export const uploadReportFile = (formData) =>
+  api.post('/reports/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+export const getCertificateDownloadUrl = (enrollmentId) =>
+  api.get(`/enrollment/certificates/${enrollmentId}/download`)
+
 export default api

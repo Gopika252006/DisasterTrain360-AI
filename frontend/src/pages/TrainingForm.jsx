@@ -5,7 +5,7 @@ import {
   FiTag, FiImage, FiCheckCircle, FiAlertCircle,
   FiBookOpen, FiArrowLeft, FiInfo
 } from 'react-icons/fi'
-import { createTraining } from '../services/api'
+import { createTraining, uploadTrainingPhoto } from '../services/api'
 import { statesAndDistricts, trainingThemes } from '../data/mockData'
 
 const initialForm = {
@@ -26,8 +26,9 @@ const TrainingForm = () => {
   const navigate = useNavigate()
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [uploadStep, setUploadStep] = useState('') // 'photo' | 'saving'
+  const [success, setSuccess]       = useState(false)
   const [photoPreview, setPhotoPreview] = useState(null)
 
   const districts = form.state ? statesAndDistricts[form.state] || [] : []
@@ -76,18 +77,28 @@ const TrainingForm = () => {
     }
     setLoading(true)
     try {
-      const payload = {
-        trainingName: form.name,          // backend expects trainingName
-        theme: form.theme,
-        state: form.state,
-        district: form.district,
-        venue: form.venue,
-        date: form.date,
-        participants: parseInt(form.participants),
-        photoUrl: form.photo ? form.photo.name : '',
-        status: form.status,
+      // Step 1 — if photo selected, upload to S3 first → get URL
+      let photoUrl = ''
+      if (form.photo) {
+        setUploadStep('photo')
+        const uploadRes = await uploadTrainingPhoto(form.photo)
+        photoUrl = uploadRes?.data?.photoUrl || ''
       }
-      await createTraining(payload) // POST /training
+
+      // Step 2 — save training to DynamoDB with S3 photo URL
+      setUploadStep('saving')
+      const payload = {
+        trainingName: form.name,
+        theme:        form.theme,
+        state:        form.state,
+        district:     form.district,
+        venue:        form.venue,
+        date:         form.date,
+        participants: parseInt(form.participants),
+        photoUrl,           // S3 URL (empty string if no photo)
+        status:       form.status,
+      }
+      await createTraining(payload)
       setSuccess(true)
       setTimeout(() => {
         setSuccess(false)

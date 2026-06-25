@@ -1,38 +1,65 @@
-import React, { useState, useEffect } from 'react'
-import { FiFileText, FiSearch, FiFilter, FiRefreshCw, FiDownload, FiPlusCircle } from 'react-icons/fi'
+import React, { useState, useEffect, useRef } from 'react'
+import { FiFileText, FiSearch, FiFilter, FiRefreshCw, FiDownload, FiPlusCircle, FiX, FiAlertCircle, FiUploadCloud, FiLoader } from 'react-icons/fi'
 import ReportCard from '../components/ReportCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { mockReports } from '../data/mockData'
-import { getReports } from '../services/api'
+import { getReports, uploadReportFile } from '../services/api'
 
 const reportTypes = ['All Types', 'Quarterly Summary', 'State Assessment', 'Performance Report', 'Risk Analysis', 'Annual Report', 'Action Plan']
 
 const Reports = () => {
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('All Types')
+  const [reports, setReports]           = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [search, setSearch]             = useState('')
+  const [typeFilter, setTypeFilter]     = useState('All Types')
   const [statusFilter, setStatusFilter] = useState('All')
 
-  useEffect(() => {
-    const loadReports = async () => {
-      setLoading(true)
-      try {
-        const res = await getReports()
-        const data = res?.data
-        if (data && data.length > 0) {
-          setReports(data)
-        } else {
-          setReports(mockReports)
-        }
-      } catch {
-        setReports(mockReports)
-      } finally {
-        setLoading(false)
-      }
+  // Upload modal state
+  const [showUpload, setShowUpload]     = useState(false)
+  const [uploadForm, setUploadForm]     = useState({ reportName: '', type: 'Quarterly Summary', description: '' })
+  const [uploadFile, setUploadFile]     = useState(null)
+  const [uploading, setUploading]       = useState(false)
+  const [uploadError, setUploadError]   = useState('')
+  const fileRef                         = useRef()
+
+  const loadReports = async () => {
+    setLoading(true)
+    try {
+      const res = await getReports()
+      const data = res?.data
+      setReports(data && data.length > 0 ? data : mockReports)
+    } catch {
+      setReports(mockReports)
+    } finally {
+      setLoading(false)
     }
-    loadReports()
-  }, [])
+  }
+
+  useEffect(() => { loadReports() }, [])
+
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault()
+    if (!uploadFile) { setUploadError('Please select a PDF file.'); return }
+    if (!uploadForm.reportName.trim()) { setUploadError('Report name is required.'); return }
+    setUploading(true)
+    setUploadError('')
+    try {
+      const fd = new FormData()
+      fd.append('file',        uploadFile)
+      fd.append('reportName',  uploadForm.reportName)
+      fd.append('type',        uploadForm.type)
+      fd.append('description', uploadForm.description)
+      await uploadReportFile(fd)
+      setShowUpload(false)
+      setUploadForm({ reportName: '', type: 'Quarterly Summary', description: '' })
+      setUploadFile(null)
+      await loadReports()          // refresh list
+    } catch (err) {
+      setUploadError(err?.response?.data?.message || 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const filtered = reports.filter(r => {
     const q = search.toLowerCase()
@@ -62,21 +89,18 @@ const Reports = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              setLoading(true)
-              getReports()
-                .then(res => setReports(res?.data?.length ? res.data : [...mockReports]))
-                .catch(() => setReports([...mockReports]))
-                .finally(() => setLoading(false))
-            }}
+            onClick={loadReports}
             className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg transition-all"
           >
             <FiRefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
-          <button className="flex items-center gap-2 text-sm text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg transition-all">
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 text-sm text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg transition-all"
+          >
             <FiPlusCircle className="w-3.5 h-3.5" />
-            Generate Report
+            Upload Report
           </button>
         </div>
       </div>
@@ -158,6 +182,98 @@ const Reports = () => {
         <span>|</span>
         <span>All downloads are encrypted and audit-logged</span>
       </div>
+
+      {/* Upload Report Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <FiUploadCloud className="w-5 h-5 text-blue-400" />
+                Upload Report PDF
+              </h2>
+              <button onClick={() => { setShowUpload(false); setUploadError('') }} className="text-gray-500 hover:text-white">
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            {uploadError && (
+              <div className="flex items-center gap-2 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-sm text-red-400">
+                <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
+                {uploadError}
+              </div>
+            )}
+
+            <form onSubmit={handleUploadSubmit} className="space-y-4">
+              <div>
+                <label className="label">Report Name <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={uploadForm.reportName}
+                  onChange={e => setUploadForm(f => ({ ...f, reportName: e.target.value }))}
+                  placeholder="e.g., Q2 2026 National Disaster Training Summary"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="label">Report Type</label>
+                <select
+                  value={uploadForm.type}
+                  onChange={e => setUploadForm(f => ({ ...f, type: e.target.value }))}
+                  className="input-field"
+                >
+                  {reportTypes.filter(t => t !== 'All Types').map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Description (optional)</label>
+                <textarea
+                  rows={2}
+                  value={uploadForm.description}
+                  onChange={e => setUploadForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Brief description of this report"
+                  className="input-field resize-none"
+                />
+              </div>
+              <div>
+                <label className="label">PDF File <span className="text-red-400">*</span></label>
+                <label
+                  htmlFor="report-pdf"
+                  className="flex items-center gap-3 p-3 border border-dashed border-gray-700 hover:border-blue-500/50 rounded-lg cursor-pointer transition-all"
+                >
+                  <FiUploadCloud className="w-5 h-5 text-gray-500" />
+                  <span className="text-sm text-gray-400">
+                    {uploadFile ? uploadFile.name : 'Click to select PDF…'}
+                  </span>
+                  <input
+                    id="report-pdf"
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf"
+                    className="sr-only"
+                    onChange={e => { setUploadFile(e.target.files[0] || null); setUploadError('') }}
+                  />
+                </label>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {uploading
+                    ? <><FiLoader className="w-4 h-4 animate-spin" /> Uploading to S3...</>
+                    : <><FiUploadCloud className="w-4 h-4" /> Upload Report</>
+                  }
+                </button>
+                <button type="button" onClick={() => { setShowUpload(false); setUploadError('') }} className="btn-secondary">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

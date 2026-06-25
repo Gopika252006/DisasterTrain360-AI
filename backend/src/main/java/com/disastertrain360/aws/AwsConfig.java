@@ -13,36 +13,40 @@ import software.amazon.awssdk.services.sns.SnsClient;
 @Configuration
 public class AwsConfig {
 
-    @Value("${cloud.aws.region.static}")       private String region;
-    @Value("${cloud.aws.credentials.access-key}") private String accessKey;
-    @Value("${cloud.aws.credentials.secret-key}") private String secretKey;
+    // ── Your AWS account (DynamoDB + SNS) ─────────────────────────────────────
+    @Value("${aws.dynamodb.region}")     private String dynamoRegion;
+    @Value("${aws.dynamodb.access-key}") private String dynamoAccessKey;
+    @Value("${aws.dynamodb.secret-key}") private String dynamoSecretKey;
 
-    private StaticCredentialsProvider credentials() {
-        return StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(accessKey, secretKey));
-    }
+    // ── Bucket owner's AWS account (S3 only) ──────────────────────────────────
+    @Value("${aws.s3.region}")           private String s3Region;
+    @Value("${aws.s3.access-key}")       private String s3AccessKey;
+    @Value("${aws.s3.secret-key}")       private String s3SecretKey;
 
     @Bean
     public DynamoDbClient dynamoDbClient() {
         return DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(credentials())
+                .region(Region.of(dynamoRegion))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(dynamoAccessKey, dynamoSecretKey)))
                 .build();
     }
 
     @Bean
     public S3Client s3Client() {
         return S3Client.builder()
-                .region(Region.of(region))
-                .credentialsProvider(credentials())
+                .region(Region.of(s3Region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(s3AccessKey, s3SecretKey)))
                 .build();
     }
 
     @Bean
     public SnsClient snsClient() {
         return SnsClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(credentials())
+                .region(Region.of(dynamoRegion))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(dynamoAccessKey, dynamoSecretKey)))
                 .build();
     }
 }

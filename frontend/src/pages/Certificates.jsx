@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FiAward, FiDownload, FiCalendar, FiCheckCircle,
-  FiRefreshCw, FiAlertCircle, FiBookOpen, FiMapPin
+  FiRefreshCw, FiAlertCircle, FiBookOpen, FiMapPin, FiLoader
 } from 'react-icons/fi'
-import { getMyCertificates } from '../services/api'
+import { getMyCertificates, getCertificateDownloadUrl } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const Certificates = () => {
@@ -12,6 +12,7 @@ const Certificates = () => {
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
+  const [downloading, setDownloading]   = useState({}) // { enrollmentId: true/false }
 
   const load = async () => {
     setLoading(true)
@@ -27,6 +28,24 @@ const Certificates = () => {
   }
 
   useEffect(() => { load() }, [])
+
+  const handleDownload = async (enrollmentId, trainingName) => {
+    setDownloading(d => ({ ...d, [enrollmentId]: true }))
+    try {
+      const res = await getCertificateDownloadUrl(enrollmentId)
+      const url = res?.data?.downloadUrl
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        // Certificate PDF not yet uploaded — show a note
+        alert(res?.data?.message || `Certificate for "${trainingName}" is not yet available for download.`)
+      }
+    } catch {
+      alert('Download failed. Please try again.')
+    } finally {
+      setDownloading(d => ({ ...d, [enrollmentId]: false }))
+    }
+  }
 
   return (
     <div className="page-container">
@@ -126,9 +145,15 @@ const Certificates = () => {
                 </p>
               </div>
 
-              <button className="btn-primary w-full flex items-center justify-center gap-2 py-2.5 text-sm">
-                <FiDownload className="w-4 h-4" />
-                Download Certificate
+              <button
+                onClick={() => handleDownload(c.enrollmentId, c.trainingName)}
+                disabled={downloading[c.enrollmentId]}
+                className="btn-primary w-full flex items-center justify-center gap-2 py-2.5 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {downloading[c.enrollmentId]
+                  ? <><FiLoader className="w-4 h-4 animate-spin" /> Getting link...</>
+                  : <><FiDownload className="w-4 h-4" /> Download Certificate</>
+                }
               </button>
             </div>
           ))}

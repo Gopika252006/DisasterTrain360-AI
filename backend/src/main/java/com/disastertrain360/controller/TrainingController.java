@@ -1,5 +1,6 @@
 package com.disastertrain360.controller;
 
+import com.disastertrain360.aws.S3Service;
 import com.disastertrain360.dto.ApiResponse;
 import com.disastertrain360.dto.TrainingRequest;
 import com.disastertrain360.model.Training;
@@ -8,11 +9,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/training")
@@ -21,9 +26,28 @@ import java.util.List;
 public class TrainingController {
 
     private final TrainingService trainingService;
+    private final S3Service s3Service;
 
-    public TrainingController(TrainingService trainingService) {
+    public TrainingController(TrainingService trainingService, S3Service s3Service) {
         this.trainingService = trainingService;
+        this.s3Service = s3Service;
+    }
+
+    /** POST /training/upload-photo  → uploads photo to S3, returns {photoUrl} */
+    @PostMapping(value = "/upload-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload training photo to S3, returns URL")
+    public ResponseEntity<?> uploadPhoto(
+            @RequestParam("photo") MultipartFile photo,
+            @RequestParam(value = "trainingId", required = false) String trainingId) {
+        try {
+            String tid = (trainingId != null && !trainingId.isBlank())
+                    ? trainingId : "tmp-" + UUID.randomUUID();
+            String url = s3Service.uploadTrainingPhoto(tid, photo);
+            return ResponseEntity.ok(Map.of("photoUrl", url));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("message", "Photo upload failed: " + e.getMessage()));
+        }
     }
 
     @PostMapping

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Popup, ZoomControl, useMap } from 'react-leaflet'
 import {
   FiMap, FiRefreshCw, FiAlertTriangle, FiActivity,
@@ -12,6 +12,7 @@ import {
 } from '../data/gisData'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { getInsights, MOCK_MODE } from '../services/api'
+import api from '../services/api'
 
 // ── Fly-to map helper ─────────────────────────────────
 const FlyToState = ({ coords }) => {
@@ -63,6 +64,8 @@ const GISMap = () => {
   const [search, setSearch]               = useState('')
   const [scoreFilter, setScoreFilter]     = useState('All')
   const [lastSync, setLastSync]           = useState(new Date())
+  const [allInsights, setAllInsights]     = useState([])   // real DB insights
+  const [allTrainings, setAllTrainings]   = useState([])   // real DB trainings
 
   const summary = getNationalSummary(states)
 
@@ -71,26 +74,52 @@ const GISMap = () => {
       setLoading(true)
       try {
         if (!MOCK_MODE) {
-          // Backend returns district-level insights (no lat/lng).
-          // GIS map always uses INDIA_STATES for coordinates.
-          // Optionally enrich state scores by averaging district scores per state.
-          const res = await getInsights()
-          if (res?.data?.length) {
-            const insights = res.data
-            const updated = INDIA_STATES.map(st => {
-              const stateInsights = insights.filter(i =>
-                (i.state || '').toLowerCase() === st.name.toLowerCase()
-              )
-              if (stateInsights.length === 0) return st
-              const avgScore = Math.round(
-                stateInsights.reduce((sum, i) => sum + (i.preparednessScore || st.score), 0) / stateInsights.length
-              )
-              return { ...st, score: avgScore }
-            })
-            setStates(updated)
-          }
-        }
-      } catch { /* use demo data */ }
+          // Fetch both trainings and insights from real DB
+          const [trainRes, insightRes] = await Promise.allSettled([
+            api.get('/training'),
+            getInsights(),
+          ])
+
+          const trainings = trainRes.status === 'fulfilled' ? (trainRes.value?.data || []) : []
+          const insights  = insightRes.status === 'fulfilled' ? (insightRes.value?.data || []) : []
+
+          // Build a map: stateName → { trainingCount, avgScore }
+          const stateTrainingCount = {}
+          trainings.forEach(t => {
+            if (!t.state) return
+            stateTrainingCount[t.state.toLowerCase()] =
+              (stateTrainingCount[t.state.toLowerCase()] || 0) + 1
+          })
+
+          const stateInsightMap = {}
+          insights.forEach(i => {
+            if (!i.state) return
+            const key = i.state.toLowerCase()
+            if (!stateInsightMap[key]) stateInsightMap[key] = []
+            stateInsightMap[key].push(i.preparednessScore || 50)
+          })
+
+          const updated = INDIA_STATES.map(st => {
+            const key           = st.name.toLowerCase()
+            const realTrainings = stateTrainingCount[key] ?? null
+            const scoreList     = stateInsightMap[key]
+
+            // If we have real insight scores for this state, use their average
+            const realScore = scoreList && scoreList.length > 0
+              ? Math.round(scoreList.reduce((a, b) => a + b, 0) / scoreList.length)
+              : null
+
+            return {
+              ...st,
+              // Override with real data only if available
+              score:     realScore     ?? st.score,
+              trainings: realTrainings ?? st.trainings,
+            }
+          })
+          setStates(updated)
+          setAllInsights(insights)
+          setAllTrainings(trainings)        }
+      } catch { /* fallback to static data */ }
       setTimeout(() => { setMapReady(true); setLoading(false) }, 400)
     }
     load()
@@ -117,7 +146,37 @@ const GISMap = () => {
     }
   })
 
-  const districts = selectedState ? (STATE_DISTRICTS[selectedState.id] || []) : []
+  const districts = useMemo(() => {
+    if (!selectedState) return []
+
+    // Build districts from real DB insights for this state
+    const stateInsights = allInsights.filter(i =>
+      (i.state || '').toLowerCase() === selectedState.name.toLowerCase()
+    )
+    const stateTrainings = allTrainings.filter(t =>
+      (t.state || '').toLowerCase() === selectedState.name.toLowerCase()
+    )
+
+    if (stateInsights.length > 0) {
+      // Group trainings by district for count
+      const trainingsByDistrict = {}
+      stateTrainings.forEach(t => {
+        if (!t.district) return
+        trainingsByDistrict[t.district] = (trainingsByDistrict[t.district] || 0) + 1
+      })
+
+      return stateInsights.map((i, idx) => ({
+        id:        i.insightId || `d-${idx}`,
+        name:      i.district || 'Unknown',
+        score:     i.preparednessScore || 50,
+        trainings: trainingsByDistrict[i.district] || 0,
+        riskLevel: i.riskLevel,
+      }))
+    }
+
+    // Fallback to static district data if no real insights for this state
+    return (STATE_DISTRICTS[selectedState.id] || [])
+  }, [selectedState, allInsights, allTrainings])
 
   return (
     <div className="page-container">

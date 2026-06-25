@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   FiFileText, FiDownload, FiCalendar, FiCpu, FiHardDrive,
-  FiLoader, FiCheckCircle
+  FiLoader, FiCheckCircle, FiAlertCircle
 } from 'react-icons/fi'
+import { getReportDownloadUrl } from '../services/api'
 
 const typeConfig = {
   'Quarterly Summary': { color: 'blue', icon: '📊' },
@@ -23,14 +24,34 @@ const colorMap = {
 }
 
 const ReportCard = ({ report }) => {
+  const [downloading, setDownloading] = useState(false)
+  const [dlError, setDlError]         = useState('')
+
   // Support both backend (reportName) and mock (name) field names
   const displayName = report.reportName || report.name || 'Untitled Report'
+  const reportId    = report.reportId   || report.id
   const tc = typeConfig[report.type] || typeConfig['Quarterly Summary']
-  const c = colorMap[tc.color] || colorMap.blue
+  const c  = colorMap[tc.color] || colorMap.blue
   const isReady = report.status === 'Ready'
 
-  const handleDownload = () => {
-    alert(`Downloading: ${displayName}`)
+  const handleDownload = async () => {
+    if (!reportId) return
+    setDownloading(true)
+    setDlError('')
+    try {
+      const res = await getReportDownloadUrl(reportId)
+      const url = res?.data?.downloadUrl
+      if (url) {
+        // open presigned S3 URL in a new tab — browser triggers download
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        setDlError(res?.data?.message || 'No file attached to this report.')
+      }
+    } catch {
+      setDlError('Download failed. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -84,19 +105,29 @@ const ReportCard = ({ report }) => {
           </div>
         </div>
 
+        {/* Download error */}
+        {dlError && (
+          <div className="flex items-center gap-2 mb-2 text-xs text-red-400">
+            <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            {dlError}
+          </div>
+        )}
+
         {/* Download Button */}
         <button
           onClick={handleDownload}
-          disabled={!isReady}
+          disabled={!isReady || downloading}
           className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-white transition-all duration-200
             ${isReady
               ? `${c.btn} active:scale-95 shadow-sm`
               : 'bg-gray-700 cursor-not-allowed opacity-60'
             }`}
         >
-          {isReady
-            ? <><FiDownload className="w-4 h-4" /> Download Report</>
-            : <><FiLoader className="w-4 h-4 animate-spin" /> Processing...</>
+          {downloading
+            ? <><FiLoader className="w-4 h-4 animate-spin" /> Getting link...</>
+            : isReady
+              ? <><FiDownload className="w-4 h-4" /> Download Report</>
+              : <><FiLoader className="w-4 h-4 animate-spin" /> Processing...</>
           }
         </button>
       </div>
