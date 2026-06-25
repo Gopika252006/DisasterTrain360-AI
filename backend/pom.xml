@@ -19,7 +19,7 @@
   <description>Real-Time Disaster Training Intelligence Platform</description>
 
   <properties>
-    <java.version>21</java.version>
+    <java.version>17</java.version>
     <jjwt.version>0.12.5</jjwt.version>
     <aws.sdk.version>2.25.27</aws.sdk.version>
     <springdoc.version>2.4.0</springdoc.version>
