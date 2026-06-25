@@ -10,10 +10,12 @@ import { getStoredAuth, clearStoredAuth, ROLES } from '../auth/rbac'
 // ─── Nav items per role ───────────────────────────────
 const NAV_BY_ROLE = {
   [ROLES.NDMA_ADMIN]: [
-    { path: '/dashboard',   label: 'Dashboard',      icon: FiGrid,        description: 'National overview' },
-    { path: '/gis-map',     label: 'GIS Monitoring',  icon: FiMap,         description: 'District heat map' },
-    { path: '/insights',    label: 'AI Insights',     icon: FiCpu,         description: 'Recommendations' },
-    { path: '/reports',     label: 'Reports',         icon: FiFileText,    description: 'Download reports' },
+    { path: '/dashboard',        label: 'Dashboard',       icon: FiGrid,        description: 'National overview' },
+    { path: '/training/manage',  label: 'All Trainings',   icon: FiList,        description: 'View & manage all' },
+    { path: '/training/create',  label: 'Create Training', icon: FiPlusSquare,  description: 'Schedule new program' },
+    { path: '/gis-map',          label: 'GIS Monitoring',  icon: FiMap,         description: 'District heat map' },
+    { path: '/insights',         label: 'AI Insights',     icon: FiCpu,         description: 'Recommendations' },
+    { path: '/reports',          label: 'Reports',         icon: FiFileText,    description: 'Download reports' },
   ],
   [ROLES.TRAINING_PROVIDER]: [
     { path: '/training/create',   label: 'Create Training',   icon: FiPlusSquare,   description: 'Schedule new program' },
@@ -21,7 +23,7 @@ const NAV_BY_ROLE = {
     { path: '/training/evidence', label: 'Upload Evidence',   icon: FiUploadCloud,  description: 'Photos & documents' },
   ],
   [ROLES.PUBLIC_USER]: [
-    { path: '/training-discovery', label: 'Training Discovery', icon: FiSearch,    description: 'Find programs' },
+    { path: '/discover',           label: 'Training Discovery', icon: FiSearch,    description: 'Find programs' },
     { path: '/my-registrations',   label: 'My Registrations',   icon: FiBookmark,  description: 'Your enrolled programs' },
     { path: '/certificates',       label: 'Certificates',        icon: FiAward,     description: 'Download certificates' },
   ],

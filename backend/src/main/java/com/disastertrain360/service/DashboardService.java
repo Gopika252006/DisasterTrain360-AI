@@ -3,7 +3,7 @@ package com.disastertrain360.service;
 import com.disastertrain360.dto.DashboardResponse;
 import com.disastertrain360.model.DistrictInsight;
 import com.disastertrain360.model.Training;
-import com.disastertrain360.repository.InMemoryStore;
+import com.disastertrain360.repository.DynamoDbRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,15 +11,15 @@ import java.util.List;
 @Service
 public class DashboardService {
 
-    private final InMemoryStore store;
+    private final DynamoDbRepository repo;
 
-    public DashboardService(InMemoryStore store) {
-        this.store = store;
+    public DashboardService(DynamoDbRepository repo) {
+        this.repo = repo;
     }
 
     public DashboardResponse getDashboard() {
-        List<Training> trainings = store.allTrainings();
-        List<DistrictInsight> insights = store.allInsights();
+        List<Training> trainings = repo.allTrainings();
+        List<DistrictInsight> insights = repo.allInsights();
 
         long completed     = trainings.stream().filter(t -> "Completed".equalsIgnoreCase(t.getStatus())).count();
         long active        = trainings.stream().filter(t -> "Ongoing".equalsIgnoreCase(t.getStatus())).count();
@@ -27,12 +27,10 @@ public class DashboardService {
 
         long prepared      = insights.stream().filter(i -> i.getPreparednessScore() >= 60).count();
         long underPrepared = insights.stream().filter(i -> i.getPreparednessScore() <  60).count();
-        long highRisk      = insights.stream().filter(i -> "CRITICAL".equals(i.getRiskLevel())).count();
 
         double avgScore = insights.stream()
                 .mapToInt(DistrictInsight::getPreparednessScore).average().orElse(65.0);
 
-        long totalDistricts = insights.size();
         long highRiskStates = insights.stream()
                 .filter(i -> i.getPreparednessScore() < 50)
                 .map(DistrictInsight::getState)
@@ -47,7 +45,7 @@ public class DashboardService {
                 .preparedDistricts((int) prepared)
                 .underPreparedDistricts((int) underPrepared)
                 .totalStatesMonitored(30)
-                .totalDistrictsMonitored(Math.max(780, (int) totalDistricts))
+                .totalDistrictsMonitored(Math.max(780, (int) insights.size()))
                 .averagePreparednessScore((int) Math.round(avgScore))
                 .highRiskStatesCount((int) highRiskStates)
                 .totalParticipants(totalPax)

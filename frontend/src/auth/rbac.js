@@ -12,42 +12,23 @@ export const ROLES = {
 // Default redirect per role after login
 export const ROLE_HOME = {
   [ROLES.NDMA_ADMIN]: '/dashboard',
-  [ROLES.TRAINING_PROVIDER]: '/training/create',
-  [ROLES.PUBLIC_USER]: '/training-discovery',
+  [ROLES.TRAINING_PROVIDER]: '/training/manage',
+  [ROLES.PUBLIC_USER]: '/discover',
 }
 
 // Which roles are allowed on each protected path.
-// '*' means all authenticated roles.
 export const ROUTE_PERMISSIONS = {
-  '/dashboard': [ROLES.NDMA_ADMIN],
-  '/gis-map': [ROLES.NDMA_ADMIN],
-  '/insights': [ROLES.NDMA_ADMIN],
-  '/reports': [ROLES.NDMA_ADMIN],
-  '/training/create': [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
-  '/training/manage': [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
-  '/training/evidence': [ROLES.TRAINING_PROVIDER],
-  '/training-discovery': '*',
-  '/my-registrations': [ROLES.PUBLIC_USER],
-  '/certificates': [ROLES.PUBLIC_USER],
-}
-
-// ── Mock Credentials (dev mode) ──────────────────────
-export const MOCK_CREDENTIALS = {
-  'admin@test.com': {
-    role: ROLES.NDMA_ADMIN,
-    name: 'Rajiv Sharma',
-    department: 'National Disaster Management Authority',
-  },
-  'provider@test.com': {
-    role: ROLES.TRAINING_PROVIDER,
-    name: 'Priya Mehta',
-    department: 'State ATI – Maharashtra',
-  },
-  'user@test.com': {
-    role: ROLES.PUBLIC_USER,
-    name: 'Arjun Singh',
-    department: 'Public',
-  },
+  '/dashboard':          [ROLES.NDMA_ADMIN],
+  '/gis-map':            [ROLES.NDMA_ADMIN],
+  '/insights':           [ROLES.NDMA_ADMIN],
+  '/reports':            [ROLES.NDMA_ADMIN],
+  '/training/create':    [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
+  '/training/manage':    [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
+  '/training/evidence':  [ROLES.TRAINING_PROVIDER],
+  '/training-discovery': '*',       // unauthenticated guest access
+  '/discover':           [ROLES.PUBLIC_USER],
+  '/my-registrations':   [ROLES.PUBLIC_USER],
+  '/certificates':       [ROLES.PUBLIC_USER],
 }
 
 // ── Auth helpers ─────────────────────────────────────

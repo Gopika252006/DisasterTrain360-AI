@@ -8,7 +8,7 @@ const statusConfig = {
   Cancelled: { cls: 'badge-red', dot: 'bg-red-400' },
 }
 
-const TrainingTable = ({ trainings = [], compact = false }) => {
+const TrainingTable = ({ trainings = [], compact = false, onView, onEdit }) => {
   const [sortField, setSortField] = useState('date')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -118,10 +118,18 @@ const TrainingTable = ({ trainings = [], compact = false }) => {
                 {!compact && (
                   <td className="py-3.5 px-3">
                     <div className="flex items-center gap-2">
-                      <button className="p-1.5 rounded-lg bg-gray-800 hover:bg-blue-600 text-gray-400 hover:text-white transition-all" title="View">
+                      <button
+                        onClick={() => onView && onView(t)}
+                        className="p-1.5 rounded-lg bg-gray-800 hover:bg-blue-600 text-gray-400 hover:text-white transition-all"
+                        title="View details"
+                      >
                         <FiEye className="w-3.5 h-3.5" />
                       </button>
-                      <button className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all" title="Edit">
+                      <button
+                        onClick={() => onEdit && onEdit(t)}
+                        className="p-1.5 rounded-lg bg-gray-800 hover:bg-amber-600 text-gray-400 hover:text-white transition-all"
+                        title="Edit training"
+                      >
                         <FiEdit2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

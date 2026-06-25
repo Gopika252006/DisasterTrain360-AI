@@ -91,7 +91,7 @@ const TrainingForm = () => {
       setSuccess(true)
       setTimeout(() => {
         setSuccess(false)
-        navigate('/dashboard')
+        navigate('/training/manage')
       }, 2500)
     } catch {
       setErrors({ submit: 'Failed to create training. Please try again.' })

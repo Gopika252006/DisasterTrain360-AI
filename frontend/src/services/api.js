@@ -84,4 +84,23 @@ export const getReports = () => {
   return api.get('/reports')
 }
 
+// ─── Enrollment APIs ──────────────────────────
+export const enrollInTraining = (trainingId) =>
+  api.post(`/enrollment/${trainingId}`)
+
+export const getMyEnrollments = () =>
+  api.get('/enrollment/my')
+
+export const getMyCertificates = () =>
+  api.get('/enrollment/certificates')
+
+export const checkEnrollment = (trainingId) =>
+  api.get(`/enrollment/check/${trainingId}`)
+
+// ─── Evidence / Upload API ────────────────────
+export const uploadEvidence = (formData) =>
+  api.post('/evidence', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
 export default api

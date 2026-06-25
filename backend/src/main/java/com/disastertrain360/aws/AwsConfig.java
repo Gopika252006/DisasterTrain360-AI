@@ -1,7 +1,6 @@
 package com.disastertrain360.aws;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -11,15 +10,10 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sns.SnsClient;
 
-/**
- * AWS clients are only created when app.mock.enabled=false.
- * Local startup does NOT require AWS credentials.
- */
 @Configuration
-@ConditionalOnProperty(name = "app.mock.enabled", havingValue = "false")
 public class AwsConfig {
 
-    @Value("${cloud.aws.region.static}") private String region;
+    @Value("${cloud.aws.region.static}")       private String region;
     @Value("${cloud.aws.credentials.access-key}") private String accessKey;
     @Value("${cloud.aws.credentials.secret-key}") private String secretKey;
 

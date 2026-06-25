@@ -51,4 +51,15 @@ public class TrainingController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update an existing training program")
+    public ResponseEntity<Training> updateTraining(
+            @PathVariable String id,
+            @RequestBody TrainingRequest req,
+            Authentication auth) {
+        return trainingService.updateTraining(id, req)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

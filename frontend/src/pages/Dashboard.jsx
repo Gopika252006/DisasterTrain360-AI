@@ -3,24 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import {
   FiBookOpen, FiCheckSquare, FiMapPin, FiAlertTriangle,
   FiTrendingUp, FiUsers, FiActivity, FiCpu, FiArrowRight,
-  FiRefreshCw
+  FiRefreshCw, FiBarChart2, FiShield
 } from 'react-icons/fi'
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
 import KPICard from '../components/KPIcard'
 import TrainingTable from '../components/TrainingTable'
 import NotificationPanel from '../components/NotificationPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
-import {
-  mockDashboardKPIs, mockCoverageTrend, mockPreparednessDistribution,
-  mockDistrictPerformance, mockTrainings, mockAIRecommendations, mockRiskSummary
-} from '../data/mockData'
-import { getDashboard, getTrainings } from '../services/api'
+import { getDashboard, getTrainings, getInsights } from '../services/api'
 
-// Custom tooltip for charts
+// ── Tooltip ───────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -30,7 +26,9 @@ const CustomTooltip = ({ active, payload, label }) => {
           <div key={i} className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full" style={{ background: entry.color }} />
             <span className="text-gray-300">{entry.name}:</span>
-            <span className="text-white font-semibold">{typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}</span>
+            <span className="text-white font-semibold">
+              {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+            </span>
           </div>
         ))}
       </div>
@@ -39,57 +37,82 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null
 }
 
-const priorityConfig = {
-  Critical: 'badge-red',
-  High: 'badge-yellow',
-  Medium: 'badge-blue',
+// ── Derive chart data from real backend data ──────────
+const buildStatusDistribution = (trainings) => {
+  const counts = { Scheduled: 0, Ongoing: 0, Completed: 0, Cancelled: 0 }
+  trainings.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++ })
+  return [
+    { name: 'Scheduled',  value: counts.Scheduled,  color: '#3b82f6' },
+    { name: 'Ongoing',    value: counts.Ongoing,    color: '#f59e0b' },
+    { name: 'Completed',  value: counts.Completed,  color: '#10b981' },
+    { name: 'Cancelled',  value: counts.Cancelled,  color: '#ef4444' },
+  ].filter(d => d.value > 0)
 }
 
+const buildStateChart = (trainings) => {
+  const map = {}
+  trainings.forEach(t => {
+    if (!t.state) return
+    map[t.state] = (map[t.state] || 0) + 1
+  })
+  return Object.entries(map)
+    .map(([state, count]) => ({ state: state.length > 10 ? state.slice(0, 10) + '…' : state, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+}
+
+const buildInsightChart = (insights) => {
+  return [
+    { name: 'Critical', value: insights.filter(i => i.riskLevel?.toLowerCase() === 'critical').length, color: '#ef4444' },
+    { name: 'High',     value: insights.filter(i => i.riskLevel?.toLowerCase() === 'high').length,     color: '#f97316' },
+    { name: 'Moderate', value: insights.filter(i => i.riskLevel?.toLowerCase() === 'moderate').length, color: '#f59e0b' },
+    { name: 'Low',      value: insights.filter(i => i.riskLevel?.toLowerCase() === 'low').length,      color: '#10b981' },
+  ].filter(d => d.value > 0)
+}
+
+// ── Dashboard ─────────────────────────────────────────
 const Dashboard = () => {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [kpis, setKpis] = useState(null)
-  const [recentTrainings, setRecentTrainings] = useState(mockTrainings)
-  const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [loading, setLoading]               = useState(true)
+  const [kpis, setKpis]                     = useState(null)
+  const [recentTrainings, setRecentTrainings] = useState([])
+  const [allTrainings, setAllTrainings]     = useState([])
+  const [insights, setInsights]             = useState([])
+  const [lastRefresh, setLastRefresh]       = useState(new Date())
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      try {
-        const [dashRes, trainRes] = await Promise.all([getDashboard(), getTrainings()])
-        setKpis(dashRes?.data || mockDashboardKPIs)
-        if (trainRes?.data?.length) {
-          setRecentTrainings(trainRes.data.map(t => ({
-            ...t,
-            id: t.trainingId || t.id,
-            name: t.trainingName || t.name,
-          })))
-        }
-      } catch {
-        setKpis(mockDashboardKPIs)
-      } finally {
-        setLoading(false)
-      }
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [dashRes, trainRes, insightRes] = await Promise.all([
+        getDashboard(),
+        getTrainings(),
+        getInsights(),
+      ])
+
+      if (dashRes?.data) setKpis(dashRes.data)
+
+      const trainings = (trainRes?.data || []).map(t => ({
+        ...t,
+        id:   t.trainingId  || t.id,
+        name: t.trainingName || t.name,
+      }))
+      setAllTrainings(trainings)
+      // show only 5 most recent on dashboard
+      setRecentTrainings(trainings.slice(0, 5))
+
+      setInsights(insightRes?.data || [])
+    } catch (err) {
+      console.error('Dashboard load error:', err)
+    } finally {
+      setLoading(false)
     }
-    loadData()
-  }, [])
+  }
+
+  useEffect(() => { loadData() }, [])
 
   const handleRefresh = () => {
     setLastRefresh(new Date())
-    setLoading(true)
-    Promise.all([getDashboard(), getTrainings()])
-      .then(([dashRes, trainRes]) => {
-        setKpis(dashRes?.data || mockDashboardKPIs)
-        if (trainRes?.data?.length) {
-          setRecentTrainings(trainRes.data.map(t => ({
-            ...t,
-            id: t.trainingId || t.id,
-            name: t.trainingName || t.name,
-          })))
-        }
-      })
-      .catch(() => setKpis({ ...mockDashboardKPIs }))
-      .finally(() => setLoading(false))
+    loadData()
   }
 
   if (loading) {
@@ -100,11 +123,18 @@ const Dashboard = () => {
     )
   }
 
-  const data = kpis || mockDashboardKPIs
+  // ── Derived values ──────────────────────────
+  const data            = kpis || {}
+  const statusDist      = buildStatusDistribution(allTrainings)
+  const stateChart      = buildStateChart(allTrainings)
+  const insightChart    = buildInsightChart(insights)
+  const totalPax        = allTrainings.reduce((s, t) => s + (t.participants || 0), 0)
+  const completedCount  = allTrainings.filter(t => t.status === 'Completed').length
+  const completionRate  = allTrainings.length ? Math.round((completedCount / allTrainings.length) * 100) : 0
 
   return (
     <div className="page-container">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">National Intelligence Dashboard</h1>
@@ -126,182 +156,174 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards Row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Total Trainings"
-          value={data.totalTrainings}
+          value={data.totalTrainings ?? allTrainings.length}
           subtitle="Across all states"
           icon={FiBookOpen}
           color="blue"
-          trendValue="+12%"
-          trend="up"
         />
         <KPICard
-          title="Completed Trainings"
-          value={data.completedTrainings}
-          subtitle={`${Math.round((data.completedTrainings / data.totalTrainings) * 100)}% completion rate`}
+          title="Completed"
+          value={data.completedTrainings ?? completedCount}
+          subtitle={`${completionRate}% completion rate`}
           icon={FiCheckSquare}
           color="emerald"
-          trendValue="+8%"
-          trend="up"
         />
         <KPICard
           title="Prepared Districts"
-          value={data.preparedDistricts}
+          value={data.preparedDistricts ?? insights.filter(i => (i.preparednessScore || 0) >= 60).length}
           subtitle="Score ≥ 60 threshold"
           icon={FiMapPin}
           color="purple"
-          trendValue="+5%"
-          trend="up"
         />
         <KPICard
           title="Under-Prepared"
-          value={data.underPreparedDistricts}
+          value={data.underPreparedDistricts ?? insights.filter(i => (i.preparednessScore || 0) < 60).length}
           subtitle="Require urgent action"
           icon={FiAlertTriangle}
           color="red"
-          trendValue="-3%"
-          trend="down"
         />
       </div>
 
-      {/* Secondary KPIs */}
+      {/* KPI Cards Row 2 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Total Participants"
-          value={data.totalParticipants}
-          subtitle="Trained this year"
+          value={data.totalParticipants ?? totalPax}
+          subtitle="Expected across all programs"
           icon={FiUsers}
           color="blue"
-          trendValue="+18%"
-          trend="up"
         />
         <KPICard
           title="Active Programs"
-          value={data.activePrograms}
+          value={data.activePrograms ?? allTrainings.filter(t => t.status === 'Ongoing').length}
           subtitle="Currently running"
           icon={FiActivity}
           color="emerald"
         />
         <KPICard
           title="Coverage Rate"
-          value={`${Math.round(data.coveragePercentage)}%`}
+          value={`${Math.round(data.coveragePercentage ?? completionRate)}%`}
           subtitle="National average"
           icon={FiTrendingUp}
           color="purple"
-          trendValue="+2.3%"
-          trend="up"
         />
         <KPICard
-          title="Risk Index"
-          value={data.riskScore}
-          subtitle="Lower is better"
-          icon={FiAlertTriangle}
+          title="Avg Preparedness"
+          value={`${data.averagePreparednessScore ?? (insights.length ? Math.round(insights.reduce((s, i) => s + (i.preparednessScore || 0), 0) / insights.length) : 0)}%`}
+          subtitle="District average score"
+          icon={FiShield}
           color="amber"
-          trendValue="-5pts"
-          trend="down"
         />
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Training Coverage Trend */}
-        <div className="lg:col-span-2 glass-card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="section-title">Training Coverage Trend</h2>
-              <p className="section-subtitle">Monthly trainings vs targets – 2026</p>
-            </div>
+
+        {/* Training Status Distribution */}
+        <div className="glass-card p-5">
+          <div className="mb-4">
+            <h2 className="section-title flex items-center gap-2">
+              <FiBarChart2 className="w-4 h-4 text-blue-400" /> Training Status
+            </h2>
+            <p className="section-subtitle">Breakdown by current status</p>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={mockCoverageTrend} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <defs>
-                <linearGradient id="trainGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="targetGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }} />
-              <Area type="monotone" dataKey="trainings" name="Actual" stroke="#3b82f6" strokeWidth={2} fill="url(#trainGrad)" dot={{ fill: '#3b82f6', r: 3 }} />
-              <Area type="monotone" dataKey="target" name="Target" stroke="#6366f1" strokeWidth={2} strokeDasharray="5 5" fill="url(#targetGrad)" dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {statusDist.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-gray-600 text-sm">No training data yet</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={statusDist} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                    {statusDist.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="transparent" />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-2">
+                {statusDist.map(item => (
+                  <div key={item.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                      <span className="text-gray-400">{item.name}</span>
+                    </div>
+                    <span className="font-semibold text-gray-200">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Preparedness Distribution */}
-        <div className="glass-card p-5">
-          <div className="mb-5">
-            <h2 className="section-title">Preparedness Distribution</h2>
-            <p className="section-subtitle">Districts by score category</p>
+        {/* Trainings by State */}
+        <div className="lg:col-span-2 glass-card p-5">
+          <div className="mb-4">
+            <h2 className="section-title">Trainings by State</h2>
+            <p className="section-subtitle">Top states by number of training programs</p>
           </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie
-                data={mockPreparednessDistribution}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {mockPreparednessDistribution.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} stroke="transparent" />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2 mt-2">
-            {mockPreparednessDistribution.map((item) => (
-              <div key={item.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-                  <span className="text-gray-400">{item.name}</span>
-                </div>
-                <span className="font-semibold text-gray-200">{item.value}</span>
-              </div>
-            ))}
-          </div>
+          {stateChart.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-gray-600 text-sm">No training data yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={stateChart} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" horizontal={false} />
+                <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="state" type="category" tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} width={80} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Trainings" radius={[0, 4, 4, 0]} fill="#3b82f6">
+                  {stateChart.map((_, i) => (
+                    <Cell key={i} fill={`hsl(${210 + i * 12}, 70%, ${55 - i * 3}%)`} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
-      {/* District Performance + AI Recs + Notifications */}
+      {/* Insight Risk Chart + Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* District Performance Bar Chart */}
+
+        {/* District Risk Distribution */}
         <div className="lg:col-span-2 glass-card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="section-title">District Performance Ranking</h2>
-              <p className="section-subtitle">Top 10 districts by preparedness score</p>
-            </div>
+          <div className="mb-4">
+            <h2 className="section-title flex items-center gap-2">
+              <FiCpu className="w-4 h-4 text-blue-400" /> District Risk Distribution
+            </h2>
+            <p className="section-subtitle">AI-assessed risk levels across analyzed districts</p>
           </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart
-              data={mockDistrictPerformance}
-              layout="vertical"
-              margin={{ top: 0, right: 20, left: 20, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="district" type="category" tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} width={70} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="score" name="Score" radius={[0, 4, 4, 0]}>
-                {mockDistrictPerformance.map((entry, index) => (
-                  <Cell key={index} fill={entry.score >= 80 ? '#10b981' : entry.score >= 60 ? '#3b82f6' : entry.score >= 40 ? '#f59e0b' : '#ef4444'} />
+          {insightChart.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-gray-600 text-sm">No insights data yet</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={insightChart} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" name="Districts" radius={[4, 4, 0, 0]}>
+                    {insightChart.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                {insightChart.map(item => (
+                  <div key={item.name} className="text-center p-3 rounded-xl bg-gray-800/60 border border-gray-700/50">
+                    <p className="text-xl font-bold" style={{ color: item.color }}>{item.value}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{item.name}</p>
+                  </div>
                 ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Notifications */}
@@ -310,88 +332,48 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Recent Trainings + AI Recommendations */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Recent Trainings */}
-        <div className="xl:col-span-2 glass-card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="section-title">Recent Trainings</h2>
-              <p className="section-subtitle">Latest scheduled and ongoing programs</p>
-            </div>
-            <button
-              onClick={() => navigate('/training/create')}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-            >
-              View all <FiArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <TrainingTable trainings={recentTrainings} compact />
-        </div>
-
-        {/* AI Recommendations */}
-        <div className="glass-card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="section-title flex items-center gap-2">
-                <FiCpu className="w-4 h-4 text-blue-400" />
-                AI Recommendations
-              </h2>
-              <p className="section-subtitle">Priority actions by AI engine</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {mockAIRecommendations.map((rec) => (
-              <div key={rec.id} className="bg-gray-800/60 rounded-xl p-3.5 border border-gray-700/50 hover:border-gray-600 transition-colors">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[rec.priority] || 'badge-blue'}`}>
-                    {rec.priority}
-                  </span>
-                  <span className="text-xs text-gray-500">{rec.timeframe}</span>
-                </div>
-                <p className="text-xs font-medium text-blue-300 mb-1">{rec.district}</p>
-                <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{rec.action}</p>
-              </div>
-            ))}
+      {/* Recent Trainings — latest 5 only */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="section-title">Recent Trainings</h2>
+            <p className="section-subtitle">
+              Latest 5 of {allTrainings.length} total programs
+            </p>
           </div>
           <button
-            onClick={() => navigate('/insights')}
-            className="w-full mt-4 text-sm text-blue-400 hover:text-blue-300 py-2 border border-blue-500/20 hover:border-blue-400/40 rounded-lg transition-all bg-blue-500/5 hover:bg-blue-500/10 flex items-center justify-center gap-2"
+            onClick={() => navigate('/training/manage')}
+            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
           >
-            View All Insights <FiArrowRight className="w-3.5 h-3.5" />
+            View All <FiArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
+        {recentTrainings.length === 0 ? (
+          <div className="text-center py-10 text-gray-600 text-sm">
+            No trainings yet. <button onClick={() => navigate('/training/create')} className="text-blue-400 hover:text-blue-300">Create one →</button>
+          </div>
+        ) : (
+          <TrainingTable
+            trainings={recentTrainings}
+            onView={() => navigate('/training/manage')}
+            onEdit={() => navigate('/training/manage')}
+          />
+        )}
       </div>
 
-      {/* Risk Summary */}
-      <div className="glass-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="section-title">National Risk Summary</h2>
-            <p className="section-subtitle">Current threat assessment and preparedness status</p>
+      {/* Summary Stats Footer */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: 'States with Training', value: new Set(allTrainings.map(t => t.state).filter(Boolean)).size, color: 'text-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/5' },
+          { label: 'Themes Covered',       value: new Set(allTrainings.map(t => t.theme).filter(Boolean)).size, color: 'text-purple-400', border: 'border-purple-500/20', bg: 'bg-purple-500/5' },
+          { label: 'Districts Analyzed',   value: insights.length, color: 'text-amber-400', border: 'border-amber-500/20', bg: 'bg-amber-500/5' },
+          { label: 'High Risk Districts',  value: data.highRiskStatesCount ?? insights.filter(i => (i.preparednessScore || 100) < 50).length, color: 'text-red-400', border: 'border-red-500/20', bg: 'bg-red-500/5' },
+        ].map(s => (
+          <div key={s.label} className={`glass-card p-4 border ${s.border} ${s.bg} text-center`}>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-gray-400 mt-1">{s.label}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="badge-yellow text-sm px-3 py-1.5">
-              ⚠ Risk Level: {mockRiskSummary.overall}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Risk Index', value: mockRiskSummary.score, unit: '/100', color: 'text-amber-400' },
-            { label: 'Critical Districts', value: mockRiskSummary.criticalDistricts, unit: '', color: 'text-red-400' },
-            { label: 'High Risk Districts', value: mockRiskSummary.highRiskDistricts, unit: '', color: 'text-orange-400' },
-            { label: 'Monsoon Readiness', value: mockRiskSummary.monsoonReadiness, unit: '%', color: 'text-blue-400' },
-          ].map((item) => (
-            <div key={item.label} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50 text-center">
-              <p className={`text-2xl font-bold ${item.color}`}>
-                {item.value}{item.unit}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{item.label}</p>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   )

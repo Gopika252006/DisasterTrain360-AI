@@ -1,7 +1,7 @@
 package com.disastertrain360.util;
 
 import com.disastertrain360.model.*;
-import com.disastertrain360.repository.InMemoryStore;
+import com.disastertrain360.repository.DynamoDbRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -13,34 +13,43 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Seeds initial data into DynamoDB on first startup.
+ * Checks item count before seeding — skips if data already exists.
+ */
 @Component
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
-    private final InMemoryStore store;
+    private final DynamoDbRepository repo;
     private final PasswordEncoder passwordEncoder;
 
-    public DataSeeder(InMemoryStore store, PasswordEncoder passwordEncoder) {
-        this.store = store;
+    public DataSeeder(DynamoDbRepository repo, PasswordEncoder passwordEncoder) {
+        this.repo = repo;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) {
+        log.info("DisasterTrain360 AI — checking DynamoDB seed state...");
         seedUsers();
         seedTrainings();
         seedInsights();
         seedReports();
         seedNotifications();
-        log.info("DisasterTrain360 AI - Mock data seeded successfully.");
+        log.info("DisasterTrain360 AI — DynamoDB ready.");
     }
 
-    private String uid()  { return UUID.randomUUID().toString(); }
-    private String now()  { return LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME); }
+    private String uid() { return UUID.randomUUID().toString(); }
+    private String now() { return LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME); }
 
-    // ── Users ─────────────────────────────────────────────────────────────────
+    // ── Users ──────────────────────────────────────────────────────────────
     private void seedUsers() {
+        if (repo.existsByEmail("admin@test.com")) {
+            log.info("  Users already seeded — skipping.");
+            return;
+        }
         String pw = passwordEncoder.encode("password");
         List.of(
             User.builder().userId(uid()).name("Rajiv Sharma").email("admin@test.com")
@@ -49,12 +58,16 @@ public class DataSeeder implements CommandLineRunner {
                 .password(pw).role(UserRole.TRAINING_PROVIDER).department("ATI Maharashtra").createdAt(now()).build(),
             User.builder().userId(uid()).name("Arjun Singh").email("user@test.com")
                 .password(pw).role(UserRole.PUBLIC_USER).department("Public").createdAt(now()).build()
-        ).forEach(store::saveUser);
-        log.info("  Seeded 3 users");
+        ).forEach(repo::saveUser);
+        log.info("  Seeded 3 users into DynamoDB");
     }
 
-    // ── Trainings ─────────────────────────────────────────────────────────────
+    // ── Trainings ──────────────────────────────────────────────────────────
     private void seedTrainings() {
+        if (repo.countTrainings() > 0) {
+            log.info("  Trainings already seeded — skipping.");
+            return;
+        }
         List.of(
             t("Flood Response & Rescue Operations","Flood Management","Bihar","Patna","SDRF Training Centre","2026-07-15",120,"Scheduled"),
             t("Earthquake Preparedness Workshop","Seismic Disaster","Gujarat","Ahmedabad","GSDMA HQ","2026-07-20",200,"Completed"),
@@ -106,8 +119,8 @@ public class DataSeeder implements CommandLineRunner {
             t("Community Health Emergency Response","Medical Response","Uttar Pradesh","Lucknow","UPSDMA Medical Wing","2027-01-10",290,"Scheduled"),
             t("Flash Flood Evacuation Simulation","Flood Management","Meghalaya","Shillong","MSDDMA Ground","2027-01-15",230,"Scheduled"),
             t("Earthquake Response Himalayan Belt","Seismic Disaster","Sikkim","Gangtok","SDMA Himalayan Institute","2027-01-20",185,"Scheduled")
-        ).forEach(store::saveTraining);
-        log.info("  Seeded 50 trainings");
+        ).forEach(repo::saveTraining);
+        log.info("  Seeded 50 trainings into DynamoDB");
     }
 
     private Training t(String name, String theme, String state, String district,
@@ -118,8 +131,12 @@ public class DataSeeder implements CommandLineRunner {
                 .createdBy("system").createdAt(now()).build();
     }
 
-    // ── Insights ──────────────────────────────────────────────────────────────
+    // ── Insights ───────────────────────────────────────────────────────────
     private void seedInsights() {
+        if (repo.countInsights() > 0) {
+            log.info("  Insights already seeded — skipping.");
+            return;
+        }
         List.of(
             i("Tamil Nadu","Chennai",88,"LOW","WELL_COVERED","Strong multi-hazard coverage across urban zones.","Maintain training; expand coastal migrant inclusion."),
             i("Tamil Nadu","Coimbatore",78,"MODERATE","ADEQUATELY_COVERED","Industrial zones lack chemical disaster training.","Partner with SIPCOT for HAZMAT module rollout."),
@@ -179,8 +196,8 @@ public class DataSeeder implements CommandLineRunner {
             i("Manipur","Imphal West",60,"HIGH","PARTIALLY_COVERED","Flood and earthquake coverage below NE average.","Deploy NE regional NDRF unit for rapid capacity building."),
             i("Meghalaya","Shillong",65,"MODERATE","ADEQUATELY_COVERED","Landslide risk high in mining zones.","Partner with Meghalaya Mines Safety for specialized drills."),
             i("Jammu & Kashmir","Srinagar",58,"HIGH","PARTIALLY_COVERED","Earthquake and avalanche preparedness improving slowly.","Accelerate avalanche preparedness in high-altitude zones.")
-        ).forEach(store::addInsight);
-        log.info("  Seeded {} insights", store.allInsights().size());
+        ).forEach(repo::saveInsight);
+        log.info("  Seeded 57 insights into DynamoDB");
     }
 
     private DistrictInsight i(String state, String district, int score, String risk,
@@ -192,8 +209,12 @@ public class DataSeeder implements CommandLineRunner {
                 .lastUpdated(now()).build();
     }
 
-    // ── Reports ───────────────────────────────────────────────────────────────
+    // ── Reports ────────────────────────────────────────────────────────────
     private void seedReports() {
+        if (repo.countReports() > 0) {
+            log.info("  Reports already seeded — skipping.");
+            return;
+        }
         List.of(
             r("Q2 2026 National Training Coverage Report","Quarterly Summary","2026-06-20","NDMA Analytics Engine","4.2 MB","Ready","Comprehensive Q2 training analysis and coverage metrics."),
             r("Bihar Flood Preparedness Assessment 2026","State Assessment","2026-06-18","AI Insights Engine","2.8 MB","Ready","Detailed flood preparedness analysis for Bihar state."),
@@ -203,8 +224,8 @@ public class DataSeeder implements CommandLineRunner {
             r("Under-Prepared Districts Action Plan June 2026","Action Plan","2026-06-22","AI Insights Engine","1.9 MB","Processing","Targeted action plans for 108 under-prepared districts."),
             r("Northeast India Disaster Preparedness Review","State Assessment","2026-05-28","AI Insights Engine","3.3 MB","Ready","Comprehensive NE India preparedness gap analysis."),
             r("Monsoon Season Readiness Report 2026","Risk Analysis","2026-05-15","NDMA Analytics Engine","2.1 MB","Ready","Pre-monsoon readiness assessment across 22 flood-prone states.")
-        ).forEach(store::addReport);
-        log.info("  Seeded 8 reports");
+        ).forEach(repo::saveReport);
+        log.info("  Seeded 8 reports into DynamoDB");
     }
 
     private Report r(String name, String type, String date, String by,
@@ -214,8 +235,12 @@ public class DataSeeder implements CommandLineRunner {
                 .status(status).description(desc).reportUrl("").build();
     }
 
-    // ── Notifications ─────────────────────────────────────────────────────────
+    // ── Notifications ──────────────────────────────────────────────────────
     private void seedNotifications() {
+        if (repo.countNotifications() > 0) {
+            log.info("  Notifications already seeded — skipping.");
+            return;
+        }
         List.of(
             n("alert","Critical: Ranchi District Below Threshold","Preparedness score dropped to 44%. Immediate intervention required.","10 min ago",false,"critical"),
             n("warning","Training Scheduled: Bihar Flood Response","Mobile training unit deployment to Patna rural zones scheduled.","1 hour ago",false,"high"),
@@ -223,8 +248,8 @@ public class DataSeeder implements CommandLineRunner {
             n("info","New AI Recommendations Available","6 new AI-generated recommendations for under-prepared districts.","4 hours ago",true,"normal"),
             n("success","Kerala Training Completed","Community First Responder Training in Thiruvananthapuram completed. 450 certified.","1 day ago",true,"normal"),
             n("warning","Monsoon Season Alert","IMD forecasts above-normal rainfall for 12 states. Training review initiated.","2 days ago",true,"high")
-        ).forEach(store::addNotification);
-        log.info("  Seeded 6 notifications");
+        ).forEach(repo::saveNotification);
+        log.info("  Seeded 6 notifications into DynamoDB");
     }
 
     private Notification n(String type, String title, String message,

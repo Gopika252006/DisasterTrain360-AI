@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   FiSearch, FiMapPin, FiCalendar, FiUsers, FiFilter,
-  FiShield, FiBookOpen, FiArrowRight, FiCheckCircle,
-  FiLogIn, FiLogOut, FiTag, FiX
+  FiShield, FiBookOpen, FiCheckCircle,
+  FiLogIn, FiLogOut, FiTag, FiX, FiRefreshCw
 } from 'react-icons/fi'
 import { mockTrainings, statesAndDistricts } from '../data/mockData'
-import { getTrainings } from '../services/api'
+import { getTrainings, enrollInTraining } from '../services/api'
 import { getStoredAuth, clearStoredAuth } from '../auth/rbac'
 
 const statusConfig = {
@@ -17,6 +17,9 @@ const statusConfig = {
 
 const PublicTrainingDiscovery = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  // If path is /discover, we're inside DashboardLayout → hide standalone header/footer
+  const isEmbedded = location.pathname === '/discover'
   const [trainings, setTrainings] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -24,32 +27,32 @@ const PublicTrainingDiscovery = () => {
   const [statusFilter, setStatusFilter] = useState('All')
   const [registeredIds, setRegisteredIds] = useState(new Set())
   const [showRegModal, setShowRegModal] = useState(null)
+  const [enrolling, setEnrolling]       = useState(false)
+  const [enrollError, setEnrollError]   = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      try {
-        const res = await getTrainings()
-        const data = res?.data
-        if (data && data.length > 0) {
-          // Normalize backend field trainingName → name for display
-          const normalized = data.map(t => ({
-            ...t,
-            id: t.trainingId || t.id,
-            name: t.trainingName || t.name,
-          }))
-          setTrainings(normalized)
-        } else {
-          setTrainings(mockTrainings)
-        }
-      } catch {
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await getTrainings()
+      const data = res?.data
+      if (data && data.length > 0) {
+        const normalized = data.map(t => ({
+          ...t,
+          id: t.trainingId || t.id,
+          name: t.trainingName || t.name,
+        }))
+        setTrainings(normalized)
+      } else {
         setTrainings(mockTrainings)
-      } finally {
-        setLoading(false)
       }
+    } catch {
+      setTrainings(mockTrainings)
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [])
+
+  useEffect(() => { load() }, [load])
 
   const filtered = trainings.filter(t => {
     const q = search.toLowerCase()
@@ -67,10 +70,25 @@ const PublicTrainingDiscovery = () => {
     setShowRegModal(training)
   }
 
-  const confirmRegister = () => {
-    if (showRegModal) {
+  const confirmRegister = async () => {
+    if (!showRegModal) return
+    setEnrolling(true)
+    setEnrollError('')
+    try {
+      await enrollInTraining(showRegModal.id)
       setRegisteredIds(prev => new Set([...prev, showRegModal.id]))
       setShowRegModal(null)
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Registration failed. Please try again.'
+      // If already enrolled treat as success
+      if (msg.toLowerCase().includes('already enrolled')) {
+        setRegisteredIds(prev => new Set([...prev, showRegModal.id]))
+        setShowRegModal(null)
+      } else {
+        setEnrollError(msg)
+      }
+    } finally {
+      setEnrolling(false)
     }
   }
 
@@ -83,8 +101,9 @@ const PublicTrainingDiscovery = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Top Bar */}
+    <div className={isEmbedded ? 'page-container' : 'min-h-screen bg-gray-950'}>
+      {/* Top Bar — only shown for unauthenticated/guest view */}
+      {!isEmbedded && (
       <header className="bg-gray-900/95 backdrop-blur border-b border-gray-800 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -97,6 +116,15 @@ const PublicTrainingDiscovery = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={load}
+              disabled={loading}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-800 transition-all disabled:opacity-50"
+              title="Refresh trainings"
+            >
+              <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
             {isLoggedIn ? (
               <button
                 onClick={handleLogout}
@@ -117,8 +145,10 @@ const PublicTrainingDiscovery = () => {
           </div>
         </div>
       </header>
+      )}
 
       {/* Hero Section */}
+      {!isEmbedded && (
       <div className="bg-gradient-to-br from-blue-950 via-blue-900/50 to-gray-950 py-12 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-300 text-xs font-medium mb-4">
@@ -153,9 +183,45 @@ const PublicTrainingDiscovery = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className={isEmbedded ? 'space-y-6' : 'max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6'}>
+
+        {/* Embedded header with inline search */}
+        {isEmbedded && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <FiBookOpen className="w-6 h-6 text-blue-400" />
+                Training Discovery
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {trainings.length} programs available · register for any upcoming training
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search trainings..."
+                  className="input-field pl-9 text-sm w-56"
+                />
+              </div>
+              <button
+                onClick={load}
+                disabled={loading}
+                className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg transition-all disabled:opacity-50"
+              >
+                <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+        )}
         {/* Filters */}
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 flex flex-wrap gap-3 items-center">
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -315,12 +381,26 @@ const PublicTrainingDiscovery = () => {
               By registering, you confirm your intent to participate. You will receive a confirmation notification with further details.
             </p>
 
+            {enrollError && (
+              <div className="flex items-center gap-2 p-3 mb-4 bg-red-900/20 border border-red-500/30 rounded-lg text-xs text-red-400">
+                <FiX className="w-3.5 h-3.5 flex-shrink-0" />
+                {enrollError}
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <button onClick={confirmRegister} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                <FiCheckCircle className="w-4 h-4" />
-                Confirm Registration
+              <button
+                onClick={confirmRegister}
+                disabled={enrolling}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {enrolling ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Registering...</>
+                ) : (
+                  <><FiCheckCircle className="w-4 h-4" /> Confirm Registration</>
+                )}
               </button>
-              <button onClick={() => setShowRegModal(null)} className="btn-secondary px-5">
+              <button onClick={() => { setShowRegModal(null); setEnrollError('') }} className="btn-secondary px-5">
                 Cancel
               </button>
             </div>
@@ -329,6 +409,7 @@ const PublicTrainingDiscovery = () => {
       )}
 
       {/* Footer */}
+      {!isEmbedded && (
       <footer className="bg-gray-900/50 border-t border-gray-800 mt-12 py-6 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
           <span>© 2026 NDMA – National Disaster Management Authority, Government of India</span>
@@ -341,6 +422,7 @@ const PublicTrainingDiscovery = () => {
           </div>
         </div>
       </footer>
+      )}
     </div>
   )
 }

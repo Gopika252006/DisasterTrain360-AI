@@ -5,7 +5,7 @@ import com.disastertrain360.dto.LoginResponse;
 import com.disastertrain360.dto.RegisterRequest;
 import com.disastertrain360.model.User;
 import com.disastertrain360.model.UserRole;
-import com.disastertrain360.repository.InMemoryStore;
+import com.disastertrain360.repository.DynamoDbRepository;
 import com.disastertrain360.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,18 +18,18 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    private final InMemoryStore store;
+    private final DynamoDbRepository repo;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthService(InMemoryStore store, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
-        this.store = store;
+    public AuthService(DynamoDbRepository repo, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+        this.repo = repo;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
     }
 
     public LoginResponse login(LoginRequest req) {
-        User user = store.findUserByEmail(req.getEmail())
+        User user = repo.findUserByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
@@ -46,7 +46,7 @@ public class AuthService {
     }
 
     public Map<String, String> register(RegisterRequest req) {
-        if (store.existsByEmail(req.getEmail())) {
+        if (repo.existsByEmail(req.getEmail())) {
             throw new RuntimeException("Email already registered");
         }
 
@@ -71,7 +71,7 @@ public class AuthService {
                 .createdAt(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
 
-        store.saveUser(user);
+        repo.saveUser(user);
         return Map.of("message", "User Registered Successfully");
     }
 }

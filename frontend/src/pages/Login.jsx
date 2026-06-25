@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   FiShield, FiMail, FiLock, FiEye, FiEyeOff,
-  FiAlertCircle, FiActivity, FiUser, FiUserPlus, FiCheckCircle
+  FiAlertCircle, FiActivity, FiUserPlus, FiCheckCircle
 } from 'react-icons/fi'
 import { loginUser } from '../services/api'
 import {
-  MOCK_CREDENTIALS, ROLES, ROLE_HOME,
+  ROLE_HOME,
   getStoredAuth, setStoredAuth
 } from '../auth/rbac'
 
@@ -15,13 +15,6 @@ const stats = [
   { label: 'Trainings Completed', value: '1,164' },
   { label: 'Participants Trained', value: '284K+' },
   { label: 'AI Recommendations', value: '2,800+' },
-]
-
-// Quick-access demo buttons shown on the form
-const DEMO_ACCOUNTS = [
-  { label: 'NDMA Admin',        email: 'admin@test.com',    role: ROLES.NDMA_ADMIN },
-  { label: 'Training Provider', email: 'provider@test.com', role: ROLES.TRAINING_PROVIDER },
-  { label: 'Public User',       email: 'user@test.com',     role: ROLES.PUBLIC_USER },
 ]
 
 const Login = () => {
@@ -54,14 +47,15 @@ const Login = () => {
     if (error) setError('')
   }
 
-  const doLogin = async (email, password) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const { email, password } = form
     if (!email || !password) {
       setError('Please fill in all required fields.')
       return
     }
     setLoading(true)
     try {
-      // Call real backend POST /login
       const res = await loginUser({ email: email.toLowerCase().trim(), password })
       const { token, role, name } = res.data
       setStoredAuth({ token, role, name, email: email.toLowerCase().trim(), department: '' })
@@ -74,16 +68,6 @@ const Login = () => {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    await doLogin(form.email, form.password)
-  }
-
-  const handleDemoLogin = (account) => {
-    setForm({ email: account.email, password: 'password' })
-    setTimeout(() => doLogin(account.email, 'password'), 100)
   }
 
   return (
@@ -172,27 +156,6 @@ const Login = () => {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-white mb-1">Sign in to platform</h1>
             <p className="text-gray-400 text-sm">Access the National Disaster Training Intelligence System</p>
-          </div>
-
-          {/* ── Demo Quick Access ── */}
-          <div className="mb-6 p-4 bg-blue-950/40 border border-blue-500/20 rounded-xl">
-            <p className="text-xs font-semibold text-blue-400 mb-3 flex items-center gap-1.5">
-              <FiUser className="w-3.5 h-3.5" />
-              Quick Demo Access — any password works
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map(acc => (
-                <button
-                  key={acc.role}
-                  type="button"
-                  onClick={() => handleDemoLogin(acc)}
-                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/40 transition-all text-center group"
-                >
-                  <span className="text-xs font-semibold text-gray-200 group-hover:text-white leading-tight">{acc.label}</span>
-                  <span className="text-xs text-gray-500 truncate w-full text-center leading-tight">{acc.email}</span>
-                </button>
-              ))}
-            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
