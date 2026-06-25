@@ -46,6 +46,3 @@ Preparedness Analysis
 ↓
 AI Insight Generation
 
-## AWS Service Owner
-
-Member Name: Gopika B
