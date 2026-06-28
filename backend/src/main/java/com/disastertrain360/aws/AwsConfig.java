@@ -13,15 +13,20 @@ import software.amazon.awssdk.services.sns.SnsClient;
 @Configuration
 public class AwsConfig {
 
-    // ── Your AWS account (DynamoDB + SNS) ─────────────────────────────────────
+    // ── DynamoDB credentials ───────────────────────────────────────────────────
     @Value("${aws.dynamodb.region}")     private String dynamoRegion;
     @Value("${aws.dynamodb.access-key}") private String dynamoAccessKey;
     @Value("${aws.dynamodb.secret-key}") private String dynamoSecretKey;
 
-    // ── Bucket owner's AWS account (S3 only) ──────────────────────────────────
+    // ── S3 credentials ─────────────────────────────────────────────────────────
     @Value("${aws.s3.region}")           private String s3Region;
     @Value("${aws.s3.access-key}")       private String s3AccessKey;
     @Value("${aws.s3.secret-key}")       private String s3SecretKey;
+
+    // ── SNS credentials ────────────────────────────────────────────────────────
+    @Value("${aws.sns.region}")          private String snsRegion;
+    @Value("${aws.sns.access-key}")      private String snsAccessKey;
+    @Value("${aws.sns.secret-key}")      private String snsSecretKey;
 
     @Bean
     public DynamoDbClient dynamoDbClient() {
@@ -44,9 +49,9 @@ public class AwsConfig {
     @Bean
     public SnsClient snsClient() {
         return SnsClient.builder()
-                .region(Region.of(dynamoRegion))
+                .region(Region.of(snsRegion))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(dynamoAccessKey, dynamoSecretKey)))
+                        AwsBasicCredentials.create(snsAccessKey, snsSecretKey)))
                 .build();
     }
 }

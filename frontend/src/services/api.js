@@ -97,6 +97,19 @@ export const getMyCertificates = () =>
 export const checkEnrollment = (trainingId) =>
   api.get(`/enrollment/check/${trainingId}`)
 
+export const getEnrollmentsByTraining = (trainingId) =>
+  api.get(`/enrollment/training/${trainingId}`)
+
+export const approveEnrollment = (enrollmentId) =>
+  api.put(`/enrollment/${enrollmentId}/approve`)
+
+export const approveTraining = (trainingId) =>
+  api.put(`/enrollment/training/${trainingId}/approve`)
+
+// ─── My Trainings (Training Provider) ────────
+export const getMyTrainings = () =>
+  api.get('/training/my')
+
 // ─── Evidence / Upload API ────────────────────
 export const uploadEvidence = (formData) =>
   api.post('/evidence', formData, {

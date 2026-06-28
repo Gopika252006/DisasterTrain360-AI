@@ -9,8 +9,9 @@ public class Enrollment {
     private String state;
     private String district;
     private String date;
-    private String status;        // REGISTERED, COMPLETED, CANCELLED
+    private String status;        // REGISTERED, PENDING_APPROVAL, COMPLETED, CANCELLED
     private String enrolledAt;
+    private String evidenceUrl;   // S3 URL of submitted evidence
 
     public Enrollment() {}
 
@@ -26,6 +27,7 @@ public class Enrollment {
     public String getDate()          { return date; }
     public String getStatus()        { return status; }
     public String getEnrolledAt()    { return enrolledAt; }
+    public String getEvidenceUrl()   { return evidenceUrl; }
 
     public void setEnrollmentId(String v)  { this.enrollmentId = v; }
     public void setTrainingId(String v)    { this.trainingId = v; }
@@ -37,6 +39,7 @@ public class Enrollment {
     public void setDate(String v)          { this.date = v; }
     public void setStatus(String v)        { this.status = v; }
     public void setEnrolledAt(String v)    { this.enrolledAt = v; }
+    public void setEvidenceUrl(String v)   { this.evidenceUrl = v; }
 
     public static class Builder {
         private final Enrollment obj = new Enrollment();
@@ -50,6 +53,7 @@ public class Enrollment {
         public Builder date(String v)          { obj.date = v; return this; }
         public Builder status(String v)        { obj.status = v; return this; }
         public Builder enrolledAt(String v)    { obj.enrolledAt = v; return this; }
+        public Builder evidenceUrl(String v)   { obj.evidenceUrl = v; return this; }
         public Enrollment build()              { return obj; }
     }
 }

@@ -41,15 +41,33 @@ public class EvidenceController {
         String uploader = auth != null ? auth.getName() : "anonymous";
 
         try {
-            List<String> urls = evidenceService.uploadEvidence(trainingId, evidenceType, uploader, files);
+            List<String> presignedUrls = evidenceService.uploadEvidence(trainingId, evidenceType, uploader, files);
             return ResponseEntity.ok(Map.of(
-                    "message",      "Evidence uploaded successfully",
-                    "filesUploaded", urls.size(),
-                    "urls",          urls
+                    "message",       "Evidence uploaded successfully. Pending admin approval.",
+                    "filesUploaded", presignedUrls.size(),
+                    "urls",          presignedUrls
             ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("message", "Upload failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /evidence/presigned?key={s3Key}
+     * Generate a fresh 60-minute presigned URL for any stored S3 key or URL.
+     * Used by the admin Evidence Review page to view uploaded files.
+     */
+    @GetMapping("/presigned")
+    @Operation(summary = "Get a presigned S3 URL for viewing an evidence file")
+    public ResponseEntity<?> presigned(@RequestParam("key") String key, Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).build();
+        try {
+            String url = evidenceService.getPresignedUrl(key);
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("message", "Could not generate presigned URL: " + e.getMessage()));
         }
     }
 }

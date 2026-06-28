@@ -87,6 +87,19 @@ public class S3Service {
 
     /**
      * Upload evidence files → evidence/{trainingId}/{timestamp}/{uuid}-{originalName}
+     * Returns the S3 **key** (not the full URL) so callers can generate presigned URLs.
+     */
+    public String uploadEvidenceReturnKey(String trainingId, MultipartFile file) throws IOException {
+        String ts  = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        String key = String.format("evidence/%s/%s/%s-%s",
+                trainingId, ts, UUID.randomUUID(), sanitize(file.getOriginalFilename()));
+        uploadRaw(key, file);
+        log.info("S3 evidence upload → s3://{}/{}", bucket, key);
+        return key;
+    }
+
+    /**
+     * Upload evidence files → evidence/{trainingId}/{timestamp}/{uuid}-{originalName}
      * Returns the public S3 URL string.
      */
     public String uploadEvidence(String trainingId, MultipartFile file) throws IOException {
@@ -94,6 +107,29 @@ public class S3Service {
         String key = String.format("evidence/%s/%s/%s-%s",
                 trainingId, ts, UUID.randomUUID(), sanitize(file.getOriginalFilename()));
         return upload(key, file);
+    }
+
+    /**
+     * Generate a presigned URL directly from an S3 key (not a full URL).
+     * Valid for 60 minutes.
+     */
+    public String generatePresignedUrlFromKey(String key) {
+        try (S3Presigner presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .build()) {
+
+            GetObjectPresignRequest presignReq = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(60))
+                    .getObjectRequest(GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .build())
+                    .build();
+
+            return presigner.presignGetObject(presignReq).url().toString();
+        }
     }
 
     // ── Presigned URL (time-limited download link) ────────────────────────────
@@ -125,17 +161,19 @@ public class S3Service {
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     private String upload(String key, MultipartFile file) throws IOException {
+        uploadRaw(key, file);
+        String url = "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
+        log.info("S3 upload → s3://{}/{}", bucket, key);
+        return url;
+    }
+
+    private void uploadRaw(String key, MultipartFile file) throws IOException {
         PutObjectRequest req = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
                 .contentType(resolveContentType(file))
                 .build();
-
         s3Client.putObject(req, RequestBody.fromBytes(file.getBytes()));
-
-        String url = "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
-        log.info("S3 upload → s3://{}/{}", bucket, key);
-        return url;
     }
 
     /** Strip S3 URL back to its key. */

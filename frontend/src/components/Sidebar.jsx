@@ -3,19 +3,20 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   FiGrid, FiPlusSquare, FiMap, FiCpu, FiFileText,
   FiSearch, FiLogOut, FiShield, FiActivity, FiChevronRight,
-  FiList, FiUploadCloud, FiAward, FiBookmark
+  FiList, FiUploadCloud, FiAward, FiBookmark, FiClipboard
 } from 'react-icons/fi'
 import { getStoredAuth, clearStoredAuth, ROLES } from '../auth/rbac'
 
 // ─── Nav items per role ───────────────────────────────
 const NAV_BY_ROLE = {
   [ROLES.NDMA_ADMIN]: [
-    { path: '/dashboard',        label: 'Dashboard',       icon: FiGrid,        description: 'National overview' },
-    { path: '/training/manage',  label: 'All Trainings',   icon: FiList,        description: 'View & manage all' },
-    { path: '/training/create',  label: 'Create Training', icon: FiPlusSquare,  description: 'Schedule new program' },
-    { path: '/gis-map',          label: 'GIS Monitoring',  icon: FiMap,         description: 'District heat map' },
-    { path: '/insights',         label: 'AI Insights',     icon: FiCpu,         description: 'Recommendations' },
-    { path: '/reports',          label: 'Reports',         icon: FiFileText,    description: 'Download reports' },
+    { path: '/dashboard',        label: 'Dashboard',        icon: FiGrid,        description: 'National overview' },
+    { path: '/training/manage',  label: 'All Trainings',    icon: FiList,        description: 'View & manage all' },
+    { path: '/training/create',  label: 'Create Training',  icon: FiPlusSquare,  description: 'Schedule new program' },
+    { path: '/evidence-review',  label: 'Evidence Review',  icon: FiClipboard,   description: 'Approve completions' },
+    { path: '/gis-map',          label: 'GIS Monitoring',   icon: FiMap,         description: 'District heat map' },
+    { path: '/insights',         label: 'AI Insights',      icon: FiCpu,         description: 'Recommendations' },
+    { path: '/reports',          label: 'Reports',          icon: FiFileText,    description: 'Download reports' },
   ],
   [ROLES.TRAINING_PROVIDER]: [
     { path: '/training/create',   label: 'Create Training',   icon: FiPlusSquare,   description: 'Schedule new program' },

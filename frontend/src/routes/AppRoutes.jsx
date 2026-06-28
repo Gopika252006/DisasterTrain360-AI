@@ -15,6 +15,7 @@ import PublicTrainingDiscovery from '../pages/PublicTrainingDiscovery'
 import ManageTrainings         from '../pages/ManageTrainings'
 import UploadEvidence          from '../pages/UploadEvidence'
 import MyRegistrations         from '../pages/MyRegistrations'
+import EvidenceReview          from '../pages/EvidenceReview'
 import Certificates            from '../pages/Certificates'
 
 // Sends an already-authenticated user to their role home
@@ -60,6 +61,9 @@ const AppRoutes = () => {
           />
           <Route path="reports"
             element={<ProtectedRoute allowedRoles={[ROLES.NDMA_ADMIN]}><Reports /></ProtectedRoute>}
+          />
+          <Route path="evidence-review"
+            element={<ProtectedRoute allowedRoles={[ROLES.NDMA_ADMIN]}><EvidenceReview /></ProtectedRoute>}
           />
 
           {/* ── NDMA_ADMIN + TRAINING_PROVIDER ─── */}

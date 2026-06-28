@@ -68,4 +68,12 @@ public class EnrollmentService {
         boolean enrolled = repo.existsEnrollment(userEmail, trainingId);
         return Map.of("enrolled", String.valueOf(enrolled));
     }
+
+    public List<Enrollment> getAllEnrollments() {
+        return repo.allEnrollments();
+    }
+
+    public List<Enrollment> getEnrollmentsByTraining(String trainingId) {
+        return repo.findEnrollmentsByTrainingId(trainingId);
+    }
 }

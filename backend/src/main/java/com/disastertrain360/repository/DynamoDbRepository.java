@@ -310,8 +310,16 @@ public class DynamoDbRepository {
         item.put("date",          s(e.getDate()));
         item.put("status",        s(e.getStatus()));
         item.put("enrolledAt",    s(e.getEnrolledAt()));
+        item.put("evidenceUrl",   s(e.getEvidenceUrl() != null ? e.getEvidenceUrl() : ""));
         dynamo.putItem(PutItemRequest.builder().tableName(enrollmentsTable).item(item).build());
         log.debug("Saved enrollment: {} for {}", e.getEnrollmentId(), e.getUserEmail());
+    }
+
+    public List<com.disastertrain360.model.Enrollment> allEnrollments() {
+        ScanRequest req = ScanRequest.builder().tableName(enrollmentsTable).build();
+        return dynamo.scan(req).items().stream()
+                .map(this::mapEnrollment)
+                .collect(Collectors.toList());
     }
 
     public List<com.disastertrain360.model.Enrollment> findEnrollmentsByEmail(String email) {
@@ -323,6 +331,27 @@ public class DynamoDbRepository {
         return dynamo.scan(req).items().stream()
                 .map(this::mapEnrollment)
                 .collect(Collectors.toList());
+    }
+
+    public List<com.disastertrain360.model.Enrollment> findEnrollmentsByTrainingId(String trainingId) {
+        ScanRequest req = ScanRequest.builder()
+                .tableName(enrollmentsTable)
+                .filterExpression("trainingId = :t")
+                .expressionAttributeValues(Map.of(":t", s(trainingId)))
+                .build();
+        return dynamo.scan(req).items().stream()
+                .map(this::mapEnrollment)
+                .collect(Collectors.toList());
+    }
+
+    public Optional<com.disastertrain360.model.Enrollment> findEnrollmentById(String enrollmentId) {
+        GetItemRequest req = GetItemRequest.builder()
+                .tableName(enrollmentsTable)
+                .key(Map.of("enrollmentId", s(enrollmentId)))
+                .build();
+        Map<String, AttributeValue> item = dynamo.getItem(req).item();
+        if (item == null || item.isEmpty()) return Optional.empty();
+        return Optional.of(mapEnrollment(item));
     }
 
     public boolean existsEnrollment(String userEmail, String trainingId) {
@@ -349,6 +378,7 @@ public class DynamoDbRepository {
                 .date(str(item, "date"))
                 .status(str(item, "status"))
                 .enrolledAt(str(item, "enrolledAt"))
+                .evidenceUrl(str(item, "evidenceUrl"))
                 .build();
     }
 }

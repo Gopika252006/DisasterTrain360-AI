@@ -86,4 +86,32 @@ public class TrainingController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PutMapping("/{id}/complete")
+    @Operation(summary = "Admin: Mark training as Completed")
+    public ResponseEntity<?> completeTraining(
+            @PathVariable String id,
+            Authentication auth) {
+        return trainingService.markCompleted(id)
+                .map(t -> ResponseEntity.ok()
+                        .<Object>body(Map.of(
+                                "message", "Training marked as Completed",
+                                "trainingId", id,
+                                "status", "COMPLETED"
+                        )))
+                .orElse(ResponseEntity.notFound().<Object>build());
+    }
+
+    /** GET /training/my — returns only trainings created by the logged-in provider */
+    @GetMapping("/my")
+    @Operation(summary = "Get trainings created by the authenticated provider")
+    public ResponseEntity<List<Training>> getMyTrainings(Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).build();
+        String email = auth.getName();
+        List<Training> mine = trainingService.getAllTrainings(null, null, null)
+                .stream()
+                .filter(t -> email.equalsIgnoreCase(t.getCreatedBy()))
+                .toList();
+        return ResponseEntity.ok(mine);
+    }
 }

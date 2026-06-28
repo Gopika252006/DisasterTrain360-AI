@@ -48,6 +48,16 @@ public class EnrollmentController {
         }
     }
 
+    /**
+     * GET /enrollment/all — Admin: get every enrollment across all trainings
+     */
+    @GetMapping("/all")
+    @Operation(summary = "Admin: Get all enrollments")
+    public ResponseEntity<List<Enrollment>> getAllEnrollments(Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(enrollmentService.getAllEnrollments());
+    }
+
     /** GET /enrollment/my — all enrollments for authenticated user */
     @GetMapping("/my")
     @Operation(summary = "Get my registrations")
@@ -74,10 +84,77 @@ public class EnrollmentController {
     }
 
     /**
-     * GET /enrollment/certificates/{enrollmentId}/download
-     * Returns a 60-min presigned S3 URL for certificate download.
-     * If no certificate file exists yet, returns a message.
+     * PUT /enrollment/{enrollmentId}/approve
+     * Admin only — marks enrollment as COMPLETED and marks the training as COMPLETED.
      */
+    @PutMapping("/{enrollmentId}/approve")
+    @Operation(summary = "Admin: Approve enrollment after evidence review")
+    public ResponseEntity<?> approveEnrollment(
+            @PathVariable String enrollmentId,
+            Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
+
+        return repo.findEnrollmentById(enrollmentId)
+                .map(enrollment -> {
+                    // 1. Mark enrollment COMPLETED
+                    enrollment.setStatus("COMPLETED");
+                    repo.saveEnrollment(enrollment);
+
+                    // 2. Mark the training itself as COMPLETED
+                    repo.findTrainingById(enrollment.getTrainingId()).ifPresent(training -> {
+                        training.setStatus("COMPLETED");
+                        repo.saveTraining(training);
+                    });
+
+                    return ResponseEntity.ok()
+                            .<Object>body(Map.of(
+                                    "message", "Enrollment approved and training marked as Completed",
+                                    "enrollmentId", enrollmentId,
+                                    "trainingId", enrollment.getTrainingId(),
+                                    "status", "COMPLETED"
+                            ));
+                })
+                .orElse(ResponseEntity.notFound().<Object>build());
+    }
+
+    /**
+     * PUT /enrollment/training/{trainingId}/approve
+     * Admin only — directly approve a training by ID (used when trainer uploads evidence
+     * without an enrollment record, i.e. TRAINING_PROVIDER flow).
+     */
+    @PutMapping("/training/{trainingId}/approve")
+    @Operation(summary = "Admin: Approve training evidence and mark training as Completed")
+    public ResponseEntity<?> approveTraining(
+            @PathVariable String trainingId,
+            Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
+
+        return repo.findTrainingById(trainingId)
+                .map(training -> {
+                    training.setStatus("COMPLETED");
+                    repo.saveTraining(training);
+                    return ResponseEntity.ok()
+                            .<Object>body(Map.of(
+                                    "message", "Training evidence approved — training marked as Completed",
+                                    "trainingId", trainingId,
+                                    "status", "COMPLETED"
+                            ));
+                })
+                .orElse(ResponseEntity.notFound().<Object>build());
+    }
+
+    /**
+     * GET /enrollment/training/{trainingId}
+     * Admin — view all enrollments for a training (to review evidence).
+     */
+    @GetMapping("/training/{trainingId}")
+    @Operation(summary = "Admin: Get all enrollments for a training")
+    public ResponseEntity<List<Enrollment>> getEnrollmentsByTraining(
+            @PathVariable String trainingId,
+            Authentication auth) {
+        if (auth == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(enrollmentService.getEnrollmentsByTraining(trainingId));
+    }
     @GetMapping("/certificates/{enrollmentId}/download")
     @Operation(summary = "Get presigned download URL for a certificate")
     public ResponseEntity<?> downloadCertificate(

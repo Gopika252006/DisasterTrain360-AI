@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,12 +55,37 @@ return training;
                 .filter(t -> state    == null || state.isBlank()    || t.getState().equalsIgnoreCase(state))
                 .filter(t -> district == null || district.isBlank() || t.getDistrict().equalsIgnoreCase(district))
                 .filter(t -> status   == null || status.isBlank()   || t.getStatus().equalsIgnoreCase(status))
-                .sorted(Comparator.comparing(Training::getDate).reversed())
+                .sorted((a, b) -> {
+                    String da = a.getDate() != null ? a.getDate() : "";
+                    String db = b.getDate() != null ? b.getDate() : "";
+                    return db.compareTo(da); // newest first — works for yyyy-MM-dd strings
+                })
                 .toList();
     }
 
     public Optional<Training> getTrainingById(String id) {
         return repo.findTrainingById(id);
+    }
+
+    public Optional<Training> markCompleted(String id) {
+        return repo.findTrainingById(id).map(existing -> {
+            Training updated = Training.builder()
+                    .trainingId(existing.getTrainingId())
+                    .trainingName(existing.getTrainingName())
+                    .theme(existing.getTheme())
+                    .state(existing.getState())
+                    .district(existing.getDistrict())
+                    .venue(existing.getVenue())
+                    .date(existing.getDate())
+                    .participants(existing.getParticipants())
+                    .photoUrl(existing.getPhotoUrl())
+                    .status("COMPLETED")
+                    .createdBy(existing.getCreatedBy())
+                    .createdAt(existing.getCreatedAt())
+                    .build();
+            repo.saveTraining(updated);
+            return updated;
+        });
     }
 
     public Optional<Training> updateTraining(String id, TrainingRequest req) {

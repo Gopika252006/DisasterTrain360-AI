@@ -22,6 +22,7 @@ export const ROUTE_PERMISSIONS = {
   '/gis-map':            [ROLES.NDMA_ADMIN],
   '/insights':           [ROLES.NDMA_ADMIN],
   '/reports':            [ROLES.NDMA_ADMIN],
+  '/evidence-review':    [ROLES.NDMA_ADMIN],
   '/training/create':    [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
   '/training/manage':    [ROLES.NDMA_ADMIN, ROLES.TRAINING_PROVIDER],
   '/training/evidence':  [ROLES.TRAINING_PROVIDER],
