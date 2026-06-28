@@ -6,8 +6,12 @@ dist/
 # Backend
 target/
 
-# Environment
+# Environment & Secrets — NEVER commit these
 .env
+.env.local
+*.env.local
+backend/.env.local
+backend/src/main/resources/application.properties
 
 # Logs
 *.log
