@@ -43,6 +43,8 @@ Scroll down to the **Environment Variables** section and click **Add Environment
 | `AWS_S3_SECRET_KEY` | `YOUR_S3_SECRET_KEY` | Your S3 Secret Key |
 | `AWS_LAMBDA_ACCESS_KEY` | `YOUR_LAMBDA_ACCESS_KEY` | Your Lambda Access Key |
 | `AWS_LAMBDA_SECRET_KEY` | `YOUR_LAMBDA_SECRET_KEY` | Your Lambda Secret Key |
+| `AWS_SNS_ACCESS_KEY` | `YOUR_SNS_ACCESS_KEY (Optional)` | Your SNS Access Key (leave empty to reuse DynamoDB key) |
+| `AWS_SNS_SECRET_KEY` | `YOUR_SNS_SECRET_KEY (Optional)` | Your SNS Secret Key (leave empty to reuse DynamoDB key) |
 | `APP_CORS_ALLOWED_ORIGINS` | `https://disaster-train360-ai.vercel.app` | *(Replace this with your actual Vercel URL once generated)* |
 
 ### Step 5: Deploy

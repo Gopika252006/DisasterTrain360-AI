@@ -23,10 +23,10 @@ public class AwsConfig {
     @Value("${aws.s3.access-key}")       private String s3AccessKey;
     @Value("${aws.s3.secret-key}")       private String s3SecretKey;
 
-    // ── SNS credentials ────────────────────────────────────────────────────────
-    @Value("${aws.sns.region}")          private String snsRegion;
-    @Value("${aws.sns.access-key}")      private String snsAccessKey;
-    @Value("${aws.sns.secret-key}")      private String snsSecretKey;
+    // ── Optional Separate SNS credentials (defaults to DynamoDB credentials) ─
+    @Value("${aws.sns.region:}")         private String snsRegion;
+    @Value("${aws.sns.access-key:}")     private String snsAccessKey;
+    @Value("${aws.sns.secret-key:}")     private String snsSecretKey;
 
     @Bean
     public DynamoDbClient dynamoDbClient() {
@@ -48,10 +48,14 @@ public class AwsConfig {
 
     @Bean
     public SnsClient snsClient() {
+        String region = (snsRegion != null && !snsRegion.isBlank()) ? snsRegion : dynamoRegion;
+        String accessKey = (snsAccessKey != null && !snsAccessKey.isBlank()) ? snsAccessKey : dynamoAccessKey;
+        String secretKey = (snsSecretKey != null && !snsSecretKey.isBlank()) ? snsSecretKey : dynamoSecretKey;
+
         return SnsClient.builder()
-                .region(Region.of(snsRegion))
+                .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(snsAccessKey, snsSecretKey)))
+                        AwsBasicCredentials.create(accessKey, secretKey)))
                 .build();
     }
 }
