@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["jdk21_headless", "maven"]
+
+[phases.build]
+cmds = ["mvn clean package -DskipTests -f backend/pom.xml"]
+
+[start]
+cmd = "java -jar backend/target/disastertrain360-backend-1.0.0.jar"
