@@ -14,7 +14,7 @@ import KPICard from '../components/KPIcard'
 import TrainingTable from '../components/TrainingTable'
 import NotificationPanel from '../components/NotificationPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { getDashboard, getTrainings, getInsights } from '../services/api'
+import { getDashboard, getTrainings, getInsights, isBackendUnavailable } from '../services/api'
 
 // ── Tooltip ───────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
@@ -79,6 +79,7 @@ const Dashboard = () => {
   const [allTrainings, setAllTrainings]     = useState([])
   const [insights, setInsights]             = useState([])
   const [lastRefresh, setLastRefresh]       = useState(new Date())
+  const [backendDown, setBackendDown]       = useState(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -89,6 +90,7 @@ const Dashboard = () => {
         getInsights(),
       ])
 
+      setBackendDown(false)
       if (dashRes?.data) setKpis(dashRes.data)
 
       const trainings = (trainRes?.data || []).map(t => ({
@@ -97,12 +99,13 @@ const Dashboard = () => {
         name: t.trainingName || t.name,
       }))
       setAllTrainings(trainings)
-      // show only 5 most recent on dashboard
       setRecentTrainings(trainings.slice(0, 5))
-
       setInsights(insightRes?.data || [])
     } catch (err) {
       console.error('Dashboard load error:', err)
+      if (isBackendUnavailable(err)) {
+        setBackendDown(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -155,6 +158,19 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Backend unavailable banner */}
+      {backendDown && (
+        <div className="flex items-center gap-3 p-4 bg-amber-900/20 border border-amber-500/30 rounded-xl text-sm text-amber-400">
+          <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Backend unavailable — Demo mode</p>
+            <p className="text-xs text-amber-300/70 mt-0.5">
+              Could not connect to the API server. Displaying empty dashboard. All navigation and UI remain functional.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards Row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

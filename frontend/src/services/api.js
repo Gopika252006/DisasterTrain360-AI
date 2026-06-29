@@ -36,6 +36,10 @@ api.interceptors.response.use(
   }
 )
 
+// ─── Helper: is this a network/offline error? ─
+export const isBackendUnavailable = (err) =>
+  !err?.response && (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNABORTED' || !navigator.onLine)
+
 // ─── Mock Mode Flag ───────────────────────────
 export const MOCK_MODE = false // Backend is now running at VITE_API_URL
 
