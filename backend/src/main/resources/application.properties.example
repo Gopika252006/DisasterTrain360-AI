@@ -86,3 +86,7 @@ logging.level.org.springframework.security=WARN
 spring.servlet.multipart.enabled=true
 spring.servlet.multipart.max-file-size=20MB
 spring.servlet.multipart.max-request-size=100MB
+
+# ── Actuator (Railway health check) ──────────────────
+management.endpoints.web.exposure.include=health
+management.endpoint.health.show-details=never

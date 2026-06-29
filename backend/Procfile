@@ -1,0 +1,1 @@
+web: java -jar target/disastertrain360-backend-1.0.0.jar
