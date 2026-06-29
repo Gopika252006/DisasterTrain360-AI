@@ -272,12 +272,12 @@ const Login = () => {
           </div>
 
           {/* Demo credentials hint */}
-          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/20 rounded-xl text-xs text-blue-300 space-y-1">
-            <p className="font-semibold text-blue-400">🎯 Demo Credentials</p>
-            <p>Admin: <span className="font-mono text-white">admin@test.com</span> / <span className="font-mono text-white">any password</span></p>
-            <p>Trainer: <span className="font-mono text-white">provider@test.com</span> / <span className="font-mono text-white">any password</span></p>
-            <p>Public: <span className="font-mono text-white">user@test.com</span> / <span className="font-mono text-white">any password</span></p>
-            <p className="text-blue-400/60 pt-1">Or create your own account via Register</p>
+          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/20 rounded-xl text-xs text-blue-300 space-y-1.5">
+            <p className="font-semibold text-blue-400 flex items-center gap-1.5">
+              <FiShield className="w-3.5 h-3.5" /> Admin Access
+            </p>
+            <p className="text-gray-400">Email: <span className="font-mono text-white">admin@test.com</span></p>
+            <p className="text-gray-400">Password: <span className="font-mono text-white">password</span></p>
           </div>
         </div>
       </div>

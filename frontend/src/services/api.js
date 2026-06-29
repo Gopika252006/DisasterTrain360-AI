@@ -81,7 +81,7 @@ export const loginUser = async (credentials) => {
 
   // 1. Check built-in demo accounts first
   const demoUser = DEMO_USERS[email]
-  if (demoUser && credentials.password) {
+  if (demoUser && credentials.password === 'password') {
     return { data: { token: demoUser.token, role: demoUser.role, name: demoUser.name, email } }
   }
 
