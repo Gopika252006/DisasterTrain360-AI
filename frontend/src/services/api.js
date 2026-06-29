@@ -53,6 +53,19 @@ const DEMO_USERS = {
   'user@test.com':     { role: 'PUBLIC_USER',        name: 'Arjun Singh',   token: 'demo-user-token' },
 }
 
+// ── Registered users store (persists across page refresh) ──
+const STORAGE_KEY = 'dt360_registered_users'
+
+const getRegisteredUsers = () => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+}
+
+const saveRegisteredUser = (email, data) => {
+  const users = getRegisteredUsers()
+  users[email.toLowerCase()] = data
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(users))
+}
+
 // In-memory mock store (persists during session)
 let _trainings = mockTrainings.map(t => ({ ...t, trainingId: t.id, trainingName: t.name }))
 let _enrollments = []
@@ -65,23 +78,59 @@ export const loginUser = async (credentials) => {
   if (!MOCK_MODE) return api.post('/login', credentials)
 
   const email = (credentials.email || '').toLowerCase().trim()
-  const user  = DEMO_USERS[email]
 
-  // Accept any of the 3 demo accounts with any non-empty password
-  if (user && credentials.password) {
-    return { data: { token: user.token, role: user.role, name: user.name, email } }
+  // 1. Check built-in demo accounts first
+  const demoUser = DEMO_USERS[email]
+  if (demoUser && credentials.password) {
+    return { data: { token: demoUser.token, role: demoUser.role, name: demoUser.name, email } }
   }
 
-  // Reject unknown accounts
+  // 2. Check user-registered accounts (stored in localStorage)
+  const registered = getRegisteredUsers()
+  const regUser = registered[email]
+  if (regUser && regUser.password === credentials.password) {
+    return {
+      data: {
+        token: `user-token-${email}`,
+        role:  regUser.role,
+        name:  regUser.name,
+        email,
+      }
+    }
+  }
+
+  // 3. Reject
   const err = new Error('Invalid email or password.')
-  err.response = { data: { message: 'Invalid email or password. Use admin@test.com, provider@test.com, or user@test.com with any password.' } }
+  err.response = {
+    data: { message: 'Invalid email or password. Check your credentials or use demo accounts.' }
+  }
   throw err
 }
 
 export const registerUser = async (userData) => {
   await delay(500)
   if (!MOCK_MODE) return api.post('/register', userData)
-  return { data: { message: 'Registration successful! (Demo mode — use admin@test.com / provider@test.com / user@test.com to log in)' } }
+
+  const email = (userData.email || '').toLowerCase().trim()
+
+  // Check duplicate
+  const registered = getRegisteredUsers()
+  const allUsers   = { ...DEMO_USERS, ...registered }
+  if (allUsers[email]) {
+    const err = new Error('Email already registered')
+    err.response = { data: { message: 'This email is already registered. Please sign in.' } }
+    throw err
+  }
+
+  // Save new user
+  saveRegisteredUser(email, {
+    name:     userData.name,
+    email,
+    password: userData.password,
+    role:     userData.role || 'PUBLIC_USER',
+  })
+
+  return { data: { message: 'Registration successful! You can now sign in.' } }
 }
 
 // ─── Training APIs ────────────────────────────
